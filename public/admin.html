@@ -12,6 +12,9 @@
     hr { border-color: #334155; }
     .user-info { margin-top: 20px; background: #1e293b; padding: 15px; border-radius: 8px; }
     .user-info h3 { margin-top: 0; }
+    .action-buttons { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .action-buttons button { background: #475569; }
+    .action-buttons button:hover { background: #334155; }
   </style>
 </head>
 <body>
@@ -22,10 +25,29 @@
     <div class="user-info">
       <h3>Информация о текущем пользователе</h3>
       <p id="adminUserInfo">Загрузка...</p>
+      <div class="action-buttons">
+        <button id="refreshBtn">Обновить список матчей</button>
+      </div>
+    </div>
+    <div class="user-info">
+      <h3>Управление игроками</h3>
+      <div>
+        <input type="text" id="targetUserId" placeholder="ID игрока">
+        <input type="text" id="reason" placeholder="Причина">
+        <select id="actionType">
+          <option value="mute">Мут (в чате)</option>
+          <option value="ban">Бан (доступ в игру)</option>
+        </select>
+        <input type="number" id="durationHours" placeholder="Длительность (часы)" min="0" step="1">
+        <button id="applyActionBtn">Применить</button>
+        <button id="cancelMatchBtn">Отменить текущий матч (ID матча)</button>
+      </div>
     </div>
   </div>
 
   <script>
+    let currentAdminId = null;
+
     async function checkAdmin() {
       const userId = localStorage.getItem('userId');
       if (!userId) {
@@ -35,6 +57,7 @@
       const res = await fetch(`/api/check-admin?userId=${userId}`);
       const data = await res.json();
       if (data.isAdmin) {
+        currentAdminId = userId;
         document.getElementById('authCheck').style.display = 'none';
         document.getElementById('adminContent').style.display = 'block';
         loadUserInfo(userId);
@@ -104,6 +127,43 @@
         alert('Ошибка');
       }
     }
+
+    async function applyAction() {
+      const targetUserId = document.getElementById('targetUserId').value.trim();
+      const reason = document.getElementById('reason').value.trim();
+      const action = document.getElementById('actionType').value;
+      const durationHours = parseInt(document.getElementById('durationHours').value);
+      if (!targetUserId) return alert('Введите ID игрока');
+      const res = await fetch('/api/admin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: currentAdminId, targetUserId, action, reason, durationHours })
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (data.success) {
+        document.getElementById('targetUserId').value = '';
+        document.getElementById('reason').value = '';
+        document.getElementById('durationHours').value = '';
+      }
+    }
+
+    async function cancelMatch() {
+      const matchId = prompt('Введите ID матча для отмены:');
+      if (!matchId) return;
+      const res = await fetch('/api/cancel-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: currentAdminId, matchId })
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (data.success) loadMatches();
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadMatches);
+    document.getElementById('applyActionBtn').addEventListener('click', applyAction);
+    document.getElementById('cancelMatchBtn').addEventListener('click', cancelMatch);
 
     checkAdmin();
     setInterval(loadMatches, 5000);

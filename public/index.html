@@ -66,6 +66,8 @@
           <button class="nav-btn" data-view="history">История</button>
           <button class="nav-btn" data-view="friends">Друзья</button>
           <button class="nav-btn" data-view="chat">Чат</button>
+          <button class="nav-btn" data-view="top">Топ</button>
+          <button class="nav-btn" data-view="clan">Клан</button>
         </nav>
       </div>
 
@@ -95,6 +97,12 @@
         <div id="profileView" class="view" style="display: none;">
           <h2>Мой профиль</h2>
           <div class="stats-grid" id="profileStats"></div>
+          <hr>
+          <h3>Сменить ник в игре</h3>
+          <div class="change-nick">
+            <input type="text" id="newNickInput" placeholder="Новый ник">
+            <button id="changeNickBtn">Сменить</button>
+          </div>
         </div>
 
         <!-- Вкладка истории -->
@@ -120,6 +128,18 @@
           <div id="chatMessages" class="chat-messages"></div>
           <div class="chat-input"><input type="text" id="chatInput" placeholder="Введите сообщение..."><button id="chatSendBtn">Отправить</button></div>
           <div id="privateChatArea" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Вкладка Топ -->
+        <div id="topView" class="view" style="display: none;">
+          <h2>Топ игроков</h2>
+          <div id="topContainer">Загрузка...</div>
+        </div>
+
+        <!-- Вкладка Клан -->
+        <div id="clanView" class="view" style="display: none;">
+          <h2>Клан</h2>
+          <div id="clanContainer">Загрузка...</div>
         </div>
       </div>
     </div>

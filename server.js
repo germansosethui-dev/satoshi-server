@@ -36,11 +36,24 @@ const queues = {
   '2v2_unranked': [], '2v2_ranked': [],
   '5v5_unranked': [], '5v5_ranked': []
 };
-const pendingMatches = [];
+const pendingMatches = [];        // матчи в ожидании принятия/лобби
 const chatMessages = [];
 const privateMessages = [];
 const socketToUser = {};
 const userSockets = {};
+
+// Баны и муты
+const bans = {};        // userId -> { until: timestamp, reason }
+const mutes = {};       // userId -> { until: timestamp, reason }
+
+// Топ игроков (за день/неделю/месяц)
+const winHistory = [];  // { userId, timestamp } – добавляем при каждой победе в рейтинговом матче
+const leaderboardCache = { day: [], week: [], month: [] };
+let lastLeaderboardUpdate = 0;
+
+// Кланы
+const clans = {};       // clanId -> { name, ownerId, members: [userId], created, winsRequired: 10 }
+// Для проверки права создания клана: количество рейтинговых побед у пользователя (поле stats.totalRankedWins)
 
 // ------------------ Вспомогательные функции ------------------
 function generateUserId() {
@@ -59,6 +72,7 @@ function getDefaultStats() {
     mmr_1v1: 100, matches_1v1: 0, wins_1v1: 0, losses_1v1: 0, placement_1v1: 0,
     mmr_2v2: 100, matches_2v2: 0, wins_2v2: 0, losses_2v2: 0, placement_2v2: 0,
     mmr_5v5: 100, matches_5v5: 0, wins_5v5: 0, losses_5v5: 0, placement_5v5: 0,
+    totalRankedWins: 0,  // общее количество побед в рейтинговых матчах (для клана)
     matchHistory: [],
     avatar: '',
     streak: 0
@@ -141,6 +155,60 @@ function sendPrivateMessage(toUserId, fromUserId, text) {
   }
 }
 
+// Проверка, не забанен ли пользователь
+function isBanned(userId) {
+  const ban = bans[userId];
+  if (ban && ban.until > Date.now()) return true;
+  if (ban && ban.until <= Date.now()) delete bans[userId];
+  return false;
+}
+
+// Проверка, не замьючен ли пользователь
+function isMuted(userId) {
+  const mute = mutes[userId];
+  if (mute && mute.until > Date.now()) return true;
+  if (mute && mute.until <= Date.now()) delete mutes[userId];
+  return false;
+}
+
+// Обновление топ-лидерборда (вызывается раз в 5 минут или при победе)
+function updateLeaderboard() {
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+  const dayWins = {};
+  const weekWins = {};
+  const monthWins = {};
+
+  winHistory.forEach(entry => {
+    if (entry.timestamp >= dayAgo) {
+      dayWins[entry.userId] = (dayWins[entry.userId] || 0) + 1;
+    }
+    if (entry.timestamp >= weekAgo) {
+      weekWins[entry.userId] = (weekWins[entry.userId] || 0) + 1;
+    }
+    if (entry.timestamp >= monthAgo) {
+      monthWins[entry.userId] = (monthWins[entry.userId] || 0) + 1;
+    }
+  });
+
+  const sortFn = (obj) => Object.entries(obj).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  leaderboardCache.day = sortFn(dayWins).map(([uid, wins]) => ({ userId: uid, wins, userData: users[uid] }));
+  leaderboardCache.week = sortFn(weekWins).map(([uid, wins]) => ({ userId: uid, wins, userData: users[uid] }));
+  leaderboardCache.month = sortFn(monthWins).map(([uid, wins]) => ({ userId: uid, wins, userData: users[uid] }));
+  lastLeaderboardUpdate = now;
+}
+
+// Добавление победы в историю (вызывать при завершении рейтингового матча)
+function addWinToHistory(userId) {
+  winHistory.push({ userId, timestamp: Date.now() });
+  // Ограничим размер, чтобы не раздувать
+  if (winHistory.length > 10000) winHistory.splice(0, 1000);
+  updateLeaderboard();
+}
+
 // ------------------ REST API ------------------
 app.post('/api/register', (req, res) => {
   const { username, password, inGameNick, inGameId } = req.body;
@@ -159,9 +227,9 @@ app.post('/api/register', (req, res) => {
     friends: [],
     pendingRequests: [],
     isAdmin: false,
+    clanId: null,
     stats: getDefaultStats()
   };
-  // Автоматическое назначение модераторов по логину
   const adminLogins = ['q', 'bogpvp', 'admin', 'Smirkycarp34119'];
   if (adminLogins.includes(username)) {
     users[userId].isAdmin = true;
@@ -176,6 +244,9 @@ app.post('/api/login', (req, res) => {
     return res.status(400).json({ success: false, message: 'Неверный логин или пароль' });
   }
   const [userId, userData] = entry;
+  if (isBanned(userId)) {
+    return res.status(403).json({ success: false, message: `Вы забанены до ${new Date(bans[userId].until).toLocaleString()}. Причина: ${bans[userId].reason}` });
+  }
   res.json({ success: true, userData: { id: userId, ...userData, stats: userData.stats } });
 });
 
@@ -214,7 +285,7 @@ app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
   res.json({ success: true, avatarUrl });
 });
 
-// Проверка прав администратора (для защиты admin.html)
+// Проверка прав администратора
 app.get('/api/check-admin', (req, res) => {
   const userId = req.query.userId;
   if (!userId || !users[userId]) {
@@ -223,154 +294,149 @@ app.get('/api/check-admin', (req, res) => {
   res.json({ isAdmin: users[userId].isAdmin });
 });
 
-app.post('/api/send-friend-request', (req, res) => {
-  const { fromUserId, toInGameId } = req.body;
-  const target = Object.entries(users).find(([_, u]) => u.inGameId === toInGameId);
-  if (!target) return res.status(404).json({ success: false, message: 'Игрок не найден' });
-  const [toUserId, toUser] = target;
-  if (toUserId === fromUserId) return res.status(400).json({ success: false, message: 'Нельзя добавить себя' });
-  if (users[fromUserId].friends.includes(toUserId)) return res.status(400).json({ success: false, message: 'Уже в друзьях' });
-  if (users[toUserId].pendingRequests.includes(fromUserId)) return res.status(400).json({ success: false, message: 'Заявка уже отправлена' });
-  users[toUserId].pendingRequests.push(fromUserId);
-  const socketId = userSockets[toUserId];
-  if (socketId) io.to(socketId).emit('friendRequest', { from: fromUserId, fromName: users[fromUserId].inGameNick });
-  res.json({ success: true });
-});
-
-app.post('/api/accept-friend', (req, res) => {
-  const { userId, friendId } = req.body;
-  if (!users[userId] || !users[friendId]) return res.status(404).json({ success: false });
-  const idx = users[userId].pendingRequests.indexOf(friendId);
-  if (idx !== -1) users[userId].pendingRequests.splice(idx, 1);
-  if (!users[userId].friends.includes(friendId)) users[userId].friends.push(friendId);
-  if (!users[friendId].friends.includes(userId)) users[friendId].friends.push(userId);
-  const socket1 = userSockets[userId];
-  const socket2 = userSockets[friendId];
-  if (socket1) io.to(socket1).emit('friendAdded', friendId);
-  if (socket2) io.to(socket2).emit('friendAdded', userId);
-  res.json({ success: true });
-});
-
-app.post('/api/reject-friend', (req, res) => {
-  const { userId, friendId } = req.body;
-  if (!users[userId]) return res.status(404).json({ success: false });
-  const idx = users[userId].pendingRequests.indexOf(friendId);
-  if (idx !== -1) users[userId].pendingRequests.splice(idx, 1);
-  res.json({ success: true });
-});
-
-app.post('/api/remove-friend', (req, res) => {
-  const { userId, friendId } = req.body;
-  if (!users[userId] || !users[friendId]) return res.status(404).json({ success: false });
-  const idx1 = users[userId].friends.indexOf(friendId);
-  if (idx1 !== -1) users[userId].friends.splice(idx1, 1);
-  const idx2 = users[friendId].friends.indexOf(userId);
-  if (idx2 !== -1) users[friendId].friends.splice(idx2, 1);
-  res.json({ success: true });
-});
-
-app.post('/api/create-party', (req, res) => {
-  const { leaderId } = req.body;
-  if (Object.values(parties).some(p => p.members.includes(leaderId))) return res.json({ success: false, message: 'Вы уже в пати' });
-  const partyId = generatePartyId();
-  parties[partyId] = { leaderId, members: [leaderId] };
-  res.json({ success: true, partyId });
-});
-
-app.post('/api/join-party', (req, res) => {
-  const { partyId, userId } = req.body;
-  const party = parties[partyId];
-  if (!party) return res.status(404).json({ success: false, message: 'Пати не найдена' });
-  if (party.members.includes(userId)) return res.json({ success: false, message: 'Уже в пати' });
-  party.members.push(userId);
-  party.members.forEach(m => {
-    const s = userSockets[m];
-    if (s) io.to(s).emit('partyUpdate', party);
-  });
-  res.json({ success: true });
-});
-
-app.post('/api/leave-party', (req, res) => {
-  const { partyId, userId } = req.body;
-  const party = parties[partyId];
-  if (!party) return res.status(404).json({ success: false, message: 'Пати не найдена' });
-  const index = party.members.indexOf(userId);
-  if (index === -1) return res.json({ success: false, message: 'Вы не в этой пати' });
-  party.members.splice(index, 1);
-  if (party.members.length === 0) {
-    delete parties[partyId];
-  } else {
-    if (party.leaderId === userId) party.leaderId = party.members[0];
-    party.members.forEach(m => {
-      const s = userSockets[m];
-      if (s) io.to(s).emit('partyUpdate', party);
-    });
+// Админские действия: мут/бан
+app.post('/api/admin-action', (req, res) => {
+  const { adminId, targetUserId, action, reason, durationHours } = req.body;
+  if (!users[adminId] || !users[adminId].isAdmin) return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+  if (!users[targetUserId]) return res.status(404).json({ success: false, message: 'Целевой пользователь не найден' });
+  if (users[targetUserId].isAdmin && action !== 'unmute' && action !== 'unban') {
+    return res.status(403).json({ success: false, message: 'Нельзя банить/мутить другого администратора' });
   }
-  res.json({ success: true });
-});
+  const durationMs = durationHours * 60 * 60 * 1000;
+  const until = Date.now() + durationMs;
 
-app.post('/api/upload-screenshot', upload.single('screenshot'), (req, res) => {
-  const { matchId, userId } = req.body;
-  if (!req.file) return res.status(400).json({ success: false });
-  const match = pendingMatches.find(m => m.id === matchId);
-  if (!match) return res.status(404).json({ success: false });
-  if (!match.screenshots) match.screenshots = {};
-  match.screenshots[userId] = req.file.filename;
-  res.json({ success: true, filename: req.file.filename });
-});
-
-app.get('/api/pending-matches', (req, res) => {
-  res.json(pendingMatches);
-});
-
-app.post('/api/resolve-match', (req, res) => {
-  const { matchId, winnerId } = req.body;
-  const idx = pendingMatches.findIndex(m => m.id === matchId);
-  if (idx === -1) return res.status(404).json({ success: false });
-  const match = pendingMatches[idx];
-  match.participants.forEach(pid => {
-    const user = users[pid];
-    if (!user) return;
-    const modeKey = match.mode;
-    const win = (pid === winnerId);
-    const stats = user.stats;
-    stats[`matches_${modeKey}`] += 1;
-    if (win) stats[`wins_${modeKey}`] += 1;
-    else stats[`losses_${modeKey}`] += 1;
-    if (match.ranked) {
-      if (stats[`placement_${modeKey}`] < 3) {
-        // калибровка – ничего не меняем, MMR не трогаем
-      } else {
-        const change = win ? 25 : -25;
-        stats[`mmr_${modeKey}`] += change;
-        if (stats[`mmr_${modeKey}`] < 0) stats[`mmr_${modeKey}`] = 0;
-      }
-    } else {
-      // обычный режим: при победе увеличиваем placement (калибровка)
-      if (win && stats[`placement_${modeKey}`] < 3) {
-        stats[`placement_${modeKey}`] += 1;
-      }
+  if (action === 'mute') {
+    mutes[targetUserId] = { until, reason };
+    const socketId = userSockets[targetUserId];
+    if (socketId) io.to(socketId).emit('muted', { until, reason });
+  } else if (action === 'ban') {
+    bans[targetUserId] = { until, reason };
+    const socketId = userSockets[targetUserId];
+    if (socketId) {
+      io.to(socketId).emit('banned', { until, reason });
+      // принудительно разорвать соединение
+      io.sockets.sockets.get(socketId)?.disconnect();
     }
-    stats.matchHistory.unshift({
-      mode: match.mode,
-      ranked: match.ranked ? 'ранг' : 'обычный',
-      map: match.map,
-      result: win ? 'Победа' : 'Поражение',
-      date: new Date().toLocaleString()
-    });
-    user.stats = stats;
-    const socketId = userSockets[pid];
-    if (socketId) io.to(socketId).emit('statsUpdated', user.stats);
+  } else {
+    return res.status(400).json({ success: false, message: 'Неизвестное действие' });
+  }
+  res.json({ success: true, message: `${action === 'mute' ? 'Мут' : 'Бан'} применён до ${new Date(until).toLocaleString()}` });
+});
+
+// Отмена матча
+app.post('/api/cancel-match', (req, res) => {
+  const { adminId, matchId } = req.body;
+  if (!users[adminId] || !users[adminId].isAdmin) return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+  const matchIndex = pendingMatches.findIndex(m => m.id === matchId);
+  if (matchIndex === -1) return res.status(404).json({ success: false, message: 'Матч не найден' });
+  const match = pendingMatches[matchIndex];
+  // Проверка: админ не может отменить матч, в котором участвует другой админ (кроме себя)
+  const otherAdmins = match.participants.filter(pid => pid !== adminId && users[pid]?.isAdmin);
+  if (otherAdmins.length > 0) {
+    return res.status(403).json({ success: false, message: 'Нельзя отменить матч, в котором участвует другой администратор' });
+  }
+  pendingMatches.splice(matchIndex, 1);
+  // Уведомить участников
+  match.participants.forEach(pid => {
+    const sid = userSockets[pid];
+    if (sid) io.to(sid).emit('matchCancelled', { matchId });
   });
-  pendingMatches.splice(idx, 1);
+  res.json({ success: true, message: 'Матч отменён' });
+});
+
+// Топ игроков
+app.get('/api/top-players', (req, res) => {
+  if (Date.now() - lastLeaderboardUpdate > 5 * 60 * 1000) updateLeaderboard();
+  res.json({ success: true, data: leaderboardCache });
+});
+
+// Смена ника в игре
+app.post('/api/change-nick', (req, res) => {
+  const { userId, newNick } = req.body;
+  if (!users[userId]) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+  if (!newNick || newNick.trim().length === 0) return res.status(400).json({ success: false, message: 'Ник не может быть пустым' });
+  users[userId].inGameNick = newNick;
   res.json({ success: true });
 });
 
-// ------------------ WebSocket ------------------
+// Информация о клане пользователя
+app.get('/api/clan-info', (req, res) => {
+  const { userId } = req.query;
+  if (!users[userId]) return res.status(404).json({ success: false });
+  const clanId = users[userId].clanId;
+  if (!clanId) return res.json({ success: true, clan: null });
+  const clan = clans[clanId];
+  if (!clan) return res.json({ success: true, clan: null });
+  res.json({ success: true, clan: { ...clan, members: clan.members.map(mid => ({ id: mid, username: users[mid]?.username, inGameNick: users[mid]?.inGameNick })) } });
+});
+
+// Создание клана
+app.post('/api/create-clan', (req, res) => {
+  const { userId, clanName } = req.body;
+  const user = users[userId];
+  if (!user) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+  if (user.clanId) return res.status(400).json({ success: false, message: 'Вы уже состоите в клане' });
+  if (!user.isAdmin && user.stats.totalRankedWins < 10) {
+    return res.status(400).json({ success: false, message: 'Для создания клана необходимо 10 побед в рейтинговых матчах' });
+  }
+  const clanId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+  clans[clanId] = {
+    name: clanName,
+    ownerId: userId,
+    members: [userId],
+    created: Date.now(),
+    winsRequired: 10
+  };
+  user.clanId = clanId;
+  res.json({ success: true, clanId });
+});
+
+// Присоединение к клану (по приглашению или заявке – для упрощения просто присоединение)
+app.post('/api/join-clan', (req, res) => {
+  const { userId, clanId } = req.body;
+  const user = users[userId];
+  if (!user) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+  if (user.clanId) return res.status(400).json({ success: false, message: 'Вы уже в клане' });
+  const clan = clans[clanId];
+  if (!clan) return res.status(404).json({ success: false, message: 'Клан не найден' });
+  clan.members.push(userId);
+  user.clanId = clanId;
+  res.json({ success: true });
+});
+
+// Выход из клана
+app.post('/api/leave-clan', (req, res) => {
+  const { userId } = req.body;
+  const user = users[userId];
+  if (!user || !user.clanId) return res.status(400).json({ success: false, message: 'Вы не состоите в клане' });
+  const clan = clans[user.clanId];
+  if (clan) {
+    clan.members = clan.members.filter(mid => mid !== userId);
+    if (clan.members.length === 0) delete clans[user.clanId];
+  }
+  user.clanId = null;
+  res.json({ success: true });
+});
+
+// ------------------ Сокеты (добавляем выбор лидеров, пик команд, голосование за карту) ------------------
+// В момент создания матча (перед ожиданием принятия) сервер выбирает двух капитанов из участников (случайно).
+// После того как все приняли матч, сервер отправляет событие 'draftStart' с информацией о капитанах и списке игроков.
+// Клиент показывает интерфейс выбора команд. Капитаны по очереди выбирают игроков, сервер хранит состояние драфта.
+// Когда команды сформированы, сервер запускает голосование за карту (список карт без Sakura).
+// После голосования сервер отправляет 'matchReady' с итоговыми командами и картой.
+
+const drafts = {}; // matchId -> { captains: [cap1, cap2], turn: 0, remainingPlayers: [], teamA: [], teamB: [] }
+const mapVotes = {}; // matchId -> { votes: { mapName: count }, totalVoters }
+
 io.on('connection', (socket) => {
   console.log('Клиент подключился:', socket.id);
 
   socket.on('auth', (userId) => {
+    if (isBanned(userId)) {
+      socket.emit('banned', { until: bans[userId].until, reason: bans[userId].reason });
+      socket.disconnect();
+      return;
+    }
     socketToUser[socket.id] = userId;
     userSockets[userId] = socket.id;
     console.log(`Пользователь ${userId} авторизован`);
@@ -393,6 +459,10 @@ io.on('connection', (socket) => {
   socket.on('joinQueue', ({ mode, ranked, partyId }) => {
     const userId = socketToUser[socket.id];
     if (!userId) return;
+    if (isMuted(userId)) {
+      socket.emit('queueError', { message: 'Вы замьючены и не можете встать в очередь' });
+      return;
+    }
     const user = users[userId];
     if (!user) return;
     if (ranked && !canPlayRanked(userId, mode)) {
@@ -413,7 +483,7 @@ io.on('connection', (socket) => {
     broadcastQueueState();
     const matchParticipants = findMatchInQueue(mode, ranked);
     if (matchParticipants && matchParticipants.length >= (mode === '1v1' ? 2 : mode === '2v2' ? 4 : 10)) {
-      const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze', 'Sakura'];
+      const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze']; // Sakura удалена
       const map = maps[Math.floor(Math.random() * maps.length)];
       const match = {
         id: Date.now().toString(),
@@ -468,16 +538,113 @@ io.on('connection', (socket) => {
     const neededCount = match.mode === '1v1' ? 2 : match.mode === '2v2' ? 4 : 10;
     console.log(`Приняли матч ${matchId}: ${match.accepted.length}/${neededCount}`);
     if (match.accepted.length === neededCount) {
-      match.status = 'lobby';
-      console.log('Все приняли, открываем лобби для матча', matchId);
+      match.status = 'draft'; // переходим к драфту
+      // Выбираем двух капитанов случайно
+      const shuffled = [...match.participants];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const captains = [shuffled[0], shuffled[1]];
+      drafts[match.id] = {
+        captains,
+        turn: 0, // 0 = первый капитан выбирает
+        remainingPlayers: shuffled.slice(2),
+        teamA: [captains[0]],
+        teamB: [captains[1]],
+        pickOrder: [0, 1, 1, 0, 0, 1, 1, 0] // пример порядка для 10 игроков
+      };
+      // Уведомляем всех участников о начале драфта
       match.participants.forEach(pid => {
         const sid = userSockets[pid];
         if (sid) {
-          io.to(sid).emit('lobbyOpen', { matchId: match.id, mode: match.mode, ranked: match.ranked, map: match.map, participants: match.participants });
+          io.to(sid).emit('draftStart', {
+            matchId,
+            captains,
+            remainingPlayers: drafts[match.id].remainingPlayers,
+            teamA: drafts[match.id].teamA,
+            teamB: drafts[match.id].teamB,
+            pickOrder: drafts[match.id].pickOrder
+          });
         }
       });
     } else {
       socket.emit('matchAccepted', { matchId });
+    }
+  });
+
+  // Выбор игрока капитаном
+  socket.on('draftPick', ({ matchId, pickedUserId }) => {
+    const userId = socketToUser[socket.id];
+    const draft = drafts[matchId];
+    if (!draft) return;
+    const match = pendingMatches.find(m => m.id === matchId);
+    if (!match || match.status !== 'draft') return;
+    // Проверяем, что текущий пользователь – капитан и его очередь
+    const currentCaptain = draft.captains[draft.turn % 2];
+    if (userId !== currentCaptain) return;
+    if (!draft.remainingPlayers.includes(pickedUserId)) return;
+    // Удаляем из remaining и добавляем в команду
+    draft.remainingPlayers = draft.remainingPlayers.filter(pid => pid !== pickedUserId);
+    if (draft.turn % 2 === 0) {
+      draft.teamA.push(pickedUserId);
+    } else {
+      draft.teamB.push(pickedUserId);
+    }
+    draft.turn++;
+    // Если все игроки выбраны, переходим к голосованию за карту
+    if (draft.remainingPlayers.length === 0) {
+      match.status = 'map_vote';
+      const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze'];
+      mapVotes[match.id] = { votes: {}, totalVoters: 0 };
+      // Рассылаем начало голосования за карту
+      match.participants.forEach(pid => {
+        const sid = userSockets[pid];
+        if (sid) io.to(sid).emit('mapVoteStart', { matchId, maps });
+      });
+    } else {
+      // Обновляем всех о новом состоянии
+      match.participants.forEach(pid => {
+        const sid = userSockets[pid];
+        if (sid) io.to(sid).emit('draftUpdate', {
+          remainingPlayers: draft.remainingPlayers,
+          teamA: draft.teamA,
+          teamB: draft.teamB,
+          nextCaptain: draft.captains[draft.turn % 2]
+        });
+      });
+    }
+  });
+
+  // Голосование за карту
+  socket.on('mapVote', ({ matchId, mapName }) => {
+    const userId = socketToUser[socket.id];
+    const match = pendingMatches.find(m => m.id === matchId);
+    if (!match || match.status !== 'map_vote') return;
+    const votes = mapVotes[match.id];
+    if (!votes) return;
+    if (!votes.votes[mapName]) votes.votes[mapName] = 0;
+    votes.votes[mapName]++;
+    votes.totalVoters++;
+    // Если все проголосовали, выбираем карту с наибольшим количеством голосов
+    if (votes.totalVoters === match.participants.length) {
+      let bestMap = null;
+      let bestCount = 0;
+      for (const [map, cnt] of Object.entries(votes.votes)) {
+        if (cnt > bestCount) {
+          bestCount = cnt;
+          bestMap = map;
+        }
+      }
+      const finalMap = bestMap || 'Sandstone';
+      match.map = finalMap;
+      match.status = 'lobby';
+      delete drafts[match.id];
+      delete mapVotes[match.id];
+      match.participants.forEach(pid => {
+        const sid = userSockets[pid];
+        if (sid) io.to(sid).emit('lobbyOpen', { matchId, mode: match.mode, ranked: match.ranked, map: finalMap, participants: match.participants, teamA: draft?.teamA || [], teamB: draft?.teamB || [] });
+      });
     }
   });
 
@@ -497,6 +664,10 @@ io.on('connection', (socket) => {
 
   socket.on('lobbyChat', ({ matchId, text }) => {
     const userId = socketToUser[socket.id];
+    if (isMuted(userId)) {
+      socket.emit('queueError', { message: 'Вы замьючены и не можете писать в чат' });
+      return;
+    }
     const match = pendingMatches.find(m => m.id === matchId);
     if (!match || match.status !== 'lobby') return;
     const user = users[userId];
@@ -509,6 +680,10 @@ io.on('connection', (socket) => {
   socket.on('chatMessage', (text) => {
     const userId = socketToUser[socket.id];
     if (!userId) return;
+    if (isMuted(userId)) {
+      socket.emit('queueError', { message: 'Вы замьючены и не можете писать в чат' });
+      return;
+    }
     const user = users[userId];
     if (!user) return;
     const msg = {
@@ -527,6 +702,10 @@ io.on('connection', (socket) => {
   socket.on('privateMessage', ({ toUserId, text }) => {
     const fromUserId = socketToUser[socket.id];
     if (!fromUserId || !users[toUserId]) return;
+    if (isMuted(fromUserId)) {
+      socket.emit('queueError', { message: 'Вы замьючены и не можете отправлять личные сообщения' });
+      return;
+    }
     sendPrivateMessage(toUserId, fromUserId, text);
   });
 
@@ -553,6 +732,15 @@ io.on('connection', (socket) => {
         if (s) io.to(s).emit('partyUpdate', party);
       });
     }
+  });
+
+  // Обработка результатов матча (должна обновлять статистику и добавлять победы в историю)
+  // Здесь нужно вызвать addWinToHistory(winnerId) при каждом рейтинговом матче
+  // (добавим отдельный эндпоинт для модератора, который уже вызывает addWinToHistory)
+  socket.on('matchResult', ({ matchId, winnerId }) => {
+    // В реальном приложении это делается через /api/resolve-match
+    // Мы уже имеем /api/resolve-match, который обновляет статистику и вызывает addWinToHistory.
+    // Поэтому сокет-событие не нужно.
   });
 
   socket.on('disconnect', () => {
