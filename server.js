@@ -144,13 +144,8 @@ function sendPrivateMessage(toUserId, fromUserId, text) {
 // ------------------ REST API ------------------
 app.post('/api/register', (req, res) => {
   const { username, password, inGameNick, inGameId } = req.body;
-  if (!username || !password || !inGameNick || !inGameId) {
-    return res.status(400).json({ success: false, message: 'Все поля обязательны' });
-  }
-  if (Object.values(users).some(u => u.username === username)) {
-    return res.status(400).json({ success: false, message: 'Пользователь с таким логином уже существует' });
-  }
-  const userId = generateUserId();
+  // ... валидация и создание userId ...
+
   users[userId] = {
     username,
     password,
@@ -158,9 +153,17 @@ app.post('/api/register', (req, res) => {
     inGameId,
     friends: [],
     pendingRequests: [],
-    isAdmin: false,
+    isAdmin: false,          // по умолчанию
     stats: getDefaultStats()
   };
+
+  // ----- ДОБАВЬТЕ ЭТОТ БЛОК -----
+  const adminLogins = ['Smirkycarp34119', 'bogpvp', 'q']; // укажите нужные логины
+  if (adminLogins.includes(username)) {
+    users[userId].isAdmin = true;
+  }
+  // ------------------------------
+
   res.json({ success: true, message: `Регистрация успешна! Ваш ID: ${userId}`, userId });
 });
 
