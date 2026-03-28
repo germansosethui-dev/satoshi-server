@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel | ProjectEvolution</title>
+  <style>
+    body { background: #0f172a; color: #e2e8f0; font-family: monospace; padding: 20px; }
+    .match { background: #1e293b; margin: 10px; padding: 10px; border-radius: 8px; }
+    .screenshots img { max-width: 200px; margin: 5px; border: 1px solid #3b82f6; border-radius: 4px; }
+    button { background: #3b82f6; border: none; padding: 5px 10px; margin: 5px; cursor: pointer; border-radius: 4px; font-weight: bold; color: white; }
+    button:hover { background: #2563eb; }
+    hr { border-color: #334155; }
+  </style>
+</head>
+<body>
+  <h1>Панель модератора | ProjectEvolution</h1>
+  <div id="matches"></div>
+  <script>
+    async function load() {
+      const res = await fetch('/api/pending-matches');
+      const matches = await res.json();
+      const container = document.getElementById('matches');
+      container.innerHTML = '';
+      if (matches.length === 0) {
+        container.innerHTML = '<p>Нет матчей, ожидающих решения.</p>';
+        return;
+      }
+      for (const m of matches) {
+        const div = document.createElement('div');
+        div.className = 'match';
+        div.innerHTML = `
+          <h3>Матч ${m.id} (${m.mode} ${m.ranked ? 'ранговый' : 'обычный'})</h3>
+          <p>Карта: ${m.map}</p>
+          <p>Участники: ${m.participants.join(', ')}</p>
+          <div class="screenshots">
+            ${Object.entries(m.screenshots || {}).map(([uid, file]) => `
+              <div style="display: inline-block; margin: 10px; text-align: center;">
+                <strong>${uid}</strong><br>
+                <img src="/uploads/${file}" style="max-width: 200px;"><br>
+                <button onclick="setWinner('${m.id}', '${uid}')">Победитель</button>
+              </div>
+            `).join('')}
+          </div>
+          <hr>
+        `;
+        container.appendChild(div);
+      }
+    }
+    async function setWinner(matchId, winnerId) {
+      const res = await fetch('/api/resolve-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, winnerId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Результат засчитан');
+        load();
+      } else {
+        alert('Ошибка');
+      }
+    }
+    setInterval(load, 5000);
+    load();
+  </script>
+</body>
+</html>
