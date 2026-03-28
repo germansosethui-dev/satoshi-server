@@ -1,4 +1,4 @@
-// client.js — финальная версия для сервера (без Electron)
+// client.js — финальная версия
 
 const socket = io();
 let currentUser = null;
@@ -109,6 +109,17 @@ function leaveAllQueues() {
   }
 }
 
+async function leaveParty(partyId) {
+  const res = await apiCall('/api/leave-party', 'POST', { partyId, userId: currentUser.id });
+  if (res.success) {
+    currentParty = null;
+    updatePartyUI();
+    showNotification('Вы вышли из пати', 'info');
+  } else {
+    showNotification('Не удалось выйти из пати', 'error');
+  }
+}
+
 function updateUI() {
   if (!currentUser) return;
   nicknameSpan.innerText = currentUser.username;
@@ -136,6 +147,7 @@ function updateUI() {
           <div class="stat-row"><span>Победы:</span> ${stats.wins_1v1}</div>
           <div class="stat-row"><span>Поражения:</span> ${stats.losses_1v1}</div>
           <div class="stat-row"><span>Винрейт:</span> ${stats.matches_1v1 ? Math.round(stats.wins_1v1 / stats.matches_1v1 * 100) : 0}%</div>
+          ${currentUser.isAdmin ? '<div class="admin-badge">Admin</div>' : ''}
         </div>
         <div class="stat-card">
           <h3>2x2 Напарники</h3>
@@ -224,7 +236,7 @@ async function loadFriends() {
   if (!currentUser) return;
   // Мои друзья
   if (friendsListDiv) {
-    friendsListDiv.innerHTML = '';
+    friendsListDiv.innerHTML = ''; // очищаем перед добавлением
     for (const friendId of currentUser.friends || []) {
       const friend = await apiCall(`/api/user/${friendId}`, 'GET');
       if (friend.success) {
@@ -245,7 +257,7 @@ async function loadFriends() {
   }
   // Входящие заявки
   if (friendRequestsDiv) {
-    friendRequestsDiv.innerHTML = '';
+    friendRequestsDiv.innerHTML = ''; // очищаем перед добавлением
     for (const requestId of currentUser.pendingRequests || []) {
       const reqUser = await apiCall(`/api/user/${requestId}`, 'GET');
       if (reqUser.success) {
@@ -361,6 +373,7 @@ async function showUserProfile(userId) {
       <p><strong>2x2:</strong> MMR ${data.stats.mmr_2v2} ${getLevelIcon(level2v2)}</p>
       <p><strong>5x5:</strong> MMR ${data.stats.mmr_5v5} ${getLevelIcon(level5v5)}</p>
       ${userId !== currentUser.id ? `<button id="profileAddFriendBtn">Добавить в друзья</button>` : ''}
+      ${data.isAdmin ? '<p><strong>👑 Администратор</strong></p>' : ''}
       <button class="close-modal">Закрыть</button>
     </div>
   `;
@@ -420,17 +433,6 @@ async function joinParty(partyCode) {
     showNotification('Вы присоединились к пати', 'success');
   } else {
     showNotification(res.message || 'Не удалось присоединиться', 'error');
-  }
-}
-
-async function leaveParty(partyId) {
-  const res = await apiCall('/api/leave-party', 'POST', { partyId, userId: currentUser.id });
-  if (res.success) {
-    currentParty = null;
-    updatePartyUI();
-    showNotification('Вы вышли из пати', 'info');
-  } else {
-    showNotification('Не удалось выйти из пати', 'error');
   }
 }
 
@@ -714,6 +716,7 @@ function openLobby(match) {
   });
   if (closeBtn) closeBtn.addEventListener('click', () => {
     leaveAllQueues();
+    if (currentParty) leaveParty(currentParty.id);
     lobbyDiv.remove();
     currentMatch = null;
   });
@@ -959,6 +962,7 @@ socket.on('matchCancelled', () => {
   currentMatch = null;
   showNotification('Матч отменён, кто-то не принял', 'error');
   leaveAllQueues();
+  if (currentParty) leaveParty(currentParty.id);
 });
 socket.on('lobbyOpen', (match) => openLobby(match));
 socket.on('statsUpdated', (stats) => {
@@ -967,6 +971,7 @@ socket.on('statsUpdated', (stats) => {
   updateUI();
   showNotification('Статистика обновлена', 'success');
   leaveAllQueues();
+  if (currentParty) leaveParty(currentParty.id);
 });
 socket.on('friendRequest', (data) => {
   showNotification(`Новая заявка в друзья от ${data.fromName}`, 'info');

@@ -662,3 +662,52 @@ nav {
 .copy-code-btn:hover {
   background: #475569;
 }
+/* Дополнительные стили для визуализации */
+button, .nav-btn, .queue-mode-btn, .leave-queue-btn, .friend-item button,
+.invite-friend, .pm-friend, .accept-request, .reject-request, #createPartyBtn, #joinPartyBtn,
+#searchBtn, .add-friend-from-party, .add-friend-lobby, .avatar-upload-btn,
+.info-icon, .chat-avatar, .participant-avatar, .lobby-avatar, .friend-avatar,
+.mini-avatar, .leave-party-btn, .friends-tab {
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+button:active, .nav-btn:active, .queue-mode-btn:active {
+  transform: scale(0.96);
+}
+
+/* Анимация для уведомлений */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); background-color: rgba(59,130,246,0.2); }
+  100% { transform: scale(1); }
+}
+.notification {
+  animation: slideIn 0.3s ease, pulse 0.5s ease 0.3s;
+}
+
+/* Частицы при клике (простая имитация) */
+.particle {
+  position: fixed;
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+  background: #3b82f6;
+  border-radius: 50%;
+  animation: particleFly 0.6s ease-out forwards;
+  z-index: 10000;
+}
+@keyframes particleFly {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+
+/* Бейдж админа */
+.admin-badge {
+  background: #fbbf24;
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  display: inline-block;
+  margin-top: 8px;
+}

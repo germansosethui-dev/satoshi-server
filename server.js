@@ -161,14 +161,11 @@ app.post('/api/register', (req, res) => {
     isAdmin: false,
     stats: getDefaultStats()
   };
-
-  // === НАЗНАЧЕНИЕ МОДЕРАТОРОВ ===
+  // Автоматическое назначение модераторов по логину
   const adminLogins = ['q', 'bogpvp', 'admin', 'Smirkycarp34119'];
   if (adminLogins.includes(username)) {
     users[userId].isAdmin = true;
   }
-  // =============================
-
   res.json({ success: true, message: `Регистрация успешна! Ваш ID: ${userId}`, userId });
 });
 
@@ -215,6 +212,15 @@ app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
   const avatarUrl = `/uploads/${req.file.filename}`;
   users[userId].stats.avatar = avatarUrl;
   res.json({ success: true, avatarUrl });
+});
+
+// Проверка прав администратора (для защиты admin.html)
+app.get('/api/check-admin', (req, res) => {
+  const userId = req.query.userId;
+  if (!userId || !users[userId]) {
+    return res.status(401).json({ isAdmin: false });
+  }
+  res.json({ isAdmin: users[userId].isAdmin });
 });
 
 app.post('/api/send-friend-request', (req, res) => {
@@ -333,11 +339,16 @@ app.post('/api/resolve-match', (req, res) => {
     else stats[`losses_${modeKey}`] += 1;
     if (match.ranked) {
       if (stats[`placement_${modeKey}`] < 3) {
-        stats[`placement_${modeKey}`] += 1;
+        // калибровка – ничего не меняем, MMR не трогаем
       } else {
         const change = win ? 25 : -25;
         stats[`mmr_${modeKey}`] += change;
         if (stats[`mmr_${modeKey}`] < 0) stats[`mmr_${modeKey}`] = 0;
+      }
+    } else {
+      // обычный режим: при победе увеличиваем placement (калибровка)
+      if (win && stats[`placement_${modeKey}`] < 3) {
+        stats[`placement_${modeKey}`] += 1;
       }
     }
     stats.matchHistory.unshift({

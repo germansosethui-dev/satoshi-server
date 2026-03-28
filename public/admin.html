@@ -10,13 +10,56 @@
     button { background: #3b82f6; border: none; padding: 5px 10px; margin: 5px; cursor: pointer; border-radius: 4px; font-weight: bold; color: white; }
     button:hover { background: #2563eb; }
     hr { border-color: #334155; }
+    .user-info { margin-top: 20px; background: #1e293b; padding: 15px; border-radius: 8px; }
+    .user-info h3 { margin-top: 0; }
   </style>
 </head>
 <body>
-  <h1>Панель модератора | ProjectEvolution</h1>
-  <div id="matches"></div>
+  <div id="authCheck" style="text-align: center; margin-top: 50px;">Проверка прав доступа...</div>
+  <div id="adminContent" style="display: none;">
+    <h1>Панель модератора | ProjectEvolution</h1>
+    <div id="matches"></div>
+    <div class="user-info">
+      <h3>Информация о текущем пользователе</h3>
+      <p id="adminUserInfo">Загрузка...</p>
+    </div>
+  </div>
+
   <script>
-    async function load() {
+    async function checkAdmin() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        document.getElementById('authCheck').innerHTML = 'Вы не авторизованы. <a href="/">Вернуться на главную</a>';
+        return;
+      }
+      const res = await fetch(`/api/check-admin?userId=${userId}`);
+      const data = await res.json();
+      if (data.isAdmin) {
+        document.getElementById('authCheck').style.display = 'none';
+        document.getElementById('adminContent').style.display = 'block';
+        loadUserInfo(userId);
+        loadMatches();
+      } else {
+        document.getElementById('authCheck').innerHTML = 'У вас нет прав администратора. <a href="/">Вернуться на главную</a>';
+      }
+    }
+
+    async function loadUserInfo(userId) {
+      const res = await fetch(`/api/user/${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        const u = data.userData;
+        document.getElementById('adminUserInfo').innerHTML = `
+          <strong>Логин:</strong> ${u.username}<br>
+          <strong>Ник в игре:</strong> ${u.inGameNick}<br>
+          <strong>ID в игре:</strong> ${u.inGameId}<br>
+          <strong>ID на сайте:</strong> ${u.id}<br>
+          <strong>Роль:</strong> Администратор
+        `;
+      }
+    }
+
+    async function loadMatches() {
       const res = await fetch('/api/pending-matches');
       const matches = await res.json();
       const container = document.getElementById('matches');
@@ -46,6 +89,7 @@
         container.appendChild(div);
       }
     }
+
     async function setWinner(matchId, winnerId) {
       const res = await fetch('/api/resolve-match', {
         method: 'POST',
@@ -55,13 +99,14 @@
       const data = await res.json();
       if (data.success) {
         alert('Результат засчитан');
-        load();
+        loadMatches();
       } else {
         alert('Ошибка');
       }
     }
-    setInterval(load, 5000);
-    load();
+
+    checkAdmin();
+    setInterval(loadMatches, 5000);
   </script>
 </body>
 </html>
