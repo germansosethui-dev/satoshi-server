@@ -52,7 +52,11 @@ const leaderboardCache = { day: [], week: [], month: [] };
 let lastLeaderboardUpdate = 0;
 
 // Кланы
-const clans = {}; // clanId -> { name, tag, ownerId, members: [userId], created, maxMembers: 50 }
+const clans = {};
+
+// Вспомогательные переменные для драфта и голосования
+const drafts = {};
+const mapVotes = {};
 
 // ------------------ Вспомогательные функции ------------------
 function generateUserId() {
@@ -179,15 +183,9 @@ function updateLeaderboard() {
   const monthWins = {};
 
   winHistory.forEach(entry => {
-    if (entry.timestamp >= dayAgo) {
-      dayWins[entry.userId] = (dayWins[entry.userId] || 0) + 1;
-    }
-    if (entry.timestamp >= weekAgo) {
-      weekWins[entry.userId] = (weekWins[entry.userId] || 0) + 1;
-    }
-    if (entry.timestamp >= monthAgo) {
-      monthWins[entry.userId] = (monthWins[entry.userId] || 0) + 1;
-    }
+    if (entry.timestamp >= dayAgo) dayWins[entry.userId] = (dayWins[entry.userId] || 0) + 1;
+    if (entry.timestamp >= weekAgo) weekWins[entry.userId] = (weekWins[entry.userId] || 0) + 1;
+    if (entry.timestamp >= monthAgo) monthWins[entry.userId] = (monthWins[entry.userId] || 0) + 1;
   });
 
   const sortFn = (obj) => Object.entries(obj).sort((a,b) => b[1] - a[1]).slice(0, 10);
@@ -225,18 +223,14 @@ app.post('/api/register', (req, res) => {
     stats: getDefaultStats()
   };
   const adminLogins = ['q', 'bogpvp', 'admin', 'Smirkycarp34119'];
-  if (adminLogins.includes(username)) {
-    users[userId].isAdmin = true;
-  }
+  if (adminLogins.includes(username)) users[userId].isAdmin = true;
   res.json({ success: true, message: `Регистрация успешна! Ваш ID: ${userId}`, userId });
 });
 
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const entry = Object.entries(users).find(([_, u]) => u.username === username && u.password === password);
-  if (!entry) {
-    return res.status(400).json({ success: false, message: 'Неверный логин или пароль' });
-  }
+  if (!entry) return res.status(400).json({ success: false, message: 'Неверный логин или пароль' });
   const [userId, userData] = entry;
   if (isBanned(userId)) {
     return res.status(403).json({ success: false, message: `Вы забанены до ${new Date(bans[userId].until).toLocaleString()}. Причина: ${bans[userId].reason}` });
@@ -253,9 +247,7 @@ app.get('/api/user/:id', (req, res) => {
 app.get('/api/user-by-gameid/:gameId', (req, res) => {
   const gameId = req.params.gameId;
   const entry = Object.entries(users).find(([_, u]) => u.inGameId === gameId);
-  if (!entry) {
-    return res.status(404).json({ success: false, message: 'Игрок не найден' });
-  }
+  if (!entry) return res.status(404).json({ success: false, message: 'Игрок не найден' });
   const [userId, userData] = entry;
   res.json({ success: true, userData: { id: userId, ...userData, stats: userData.stats } });
 });
@@ -281,9 +273,7 @@ app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
 
 app.get('/api/check-admin', (req, res) => {
   const userId = req.query.userId;
-  if (!userId || !users[userId]) {
-    return res.status(401).json({ isAdmin: false });
-  }
+  if (!userId || !users[userId]) return res.status(401).json({ isAdmin: false });
   res.json({ isAdmin: users[userId].isAdmin });
 });
 
@@ -299,14 +289,14 @@ app.post('/api/admin-action', (req, res) => {
 
   if (action === 'mute') {
     mutes[targetUserId] = { until, reason };
-    const socketId = userSockets[targetUserId];
-    if (socketId) io.to(socketId).emit('muted', { until, reason });
+    const sid = userSockets[targetUserId];
+    if (sid) io.to(sid).emit('muted', { until, reason });
   } else if (action === 'ban') {
     bans[targetUserId] = { until, reason };
-    const socketId = userSockets[targetUserId];
-    if (socketId) {
-      io.to(socketId).emit('banned', { until, reason });
-      io.sockets.sockets.get(socketId)?.disconnect();
+    const sid = userSockets[targetUserId];
+    if (sid) {
+      io.to(sid).emit('banned', { until, reason });
+      io.sockets.sockets.get(sid)?.disconnect();
     }
   } else {
     return res.status(400).json({ success: false, message: 'Неизвестное действие' });
@@ -317,14 +307,14 @@ app.post('/api/admin-action', (req, res) => {
 app.post('/api/cancel-match', (req, res) => {
   const { adminId, matchId } = req.body;
   if (!users[adminId] || !users[adminId].isAdmin) return res.status(403).json({ success: false, message: 'Недостаточно прав' });
-  const matchIndex = pendingMatches.findIndex(m => m.id === matchId);
-  if (matchIndex === -1) return res.status(404).json({ success: false, message: 'Матч не найден' });
-  const match = pendingMatches[matchIndex];
+  const idx = pendingMatches.findIndex(m => m.id === matchId);
+  if (idx === -1) return res.status(404).json({ success: false, message: 'Матч не найден' });
+  const match = pendingMatches[idx];
   const otherAdmins = match.participants.filter(pid => pid !== adminId && users[pid]?.isAdmin);
-  if (otherAdmins.length > 0) {
+  if (otherAdmins.length) {
     return res.status(403).json({ success: false, message: 'Нельзя отменить матч, в котором участвует другой администратор' });
   }
-  pendingMatches.splice(matchIndex, 1);
+  pendingMatches.splice(idx, 1);
   match.participants.forEach(pid => {
     const sid = userSockets[pid];
     if (sid) io.to(sid).emit('matchCancelled', { matchId });
@@ -345,6 +335,7 @@ app.post('/api/change-nick', (req, res) => {
   res.json({ success: true });
 });
 
+// --- Кланы ---
 app.get('/api/clan-info', (req, res) => {
   const { userId } = req.query;
   if (!users[userId]) return res.status(404).json({ success: false });
@@ -410,6 +401,47 @@ app.post('/api/leave-clan', (req, res) => {
   res.json({ success: true });
 });
 
+// --- Пати ---
+app.post('/api/create-party', (req, res) => {
+  const { leaderId } = req.body;
+  if (Object.values(parties).some(p => p.members.includes(leaderId))) return res.json({ success: false, message: 'Вы уже в пати' });
+  const partyId = generatePartyId();
+  parties[partyId] = { leaderId, members: [leaderId] };
+  res.json({ success: true, partyId });
+});
+
+app.post('/api/join-party', (req, res) => {
+  const { partyId, userId } = req.body;
+  const party = parties[partyId];
+  if (!party) return res.status(404).json({ success: false, message: 'Пати не найдена' });
+  if (party.members.includes(userId)) return res.json({ success: false, message: 'Уже в пати' });
+  party.members.push(userId);
+  party.members.forEach(m => {
+    const s = userSockets[m];
+    if (s) io.to(s).emit('partyUpdate', party);
+  });
+  res.json({ success: true });
+});
+
+app.post('/api/leave-party', (req, res) => {
+  const { partyId, userId } = req.body;
+  const party = parties[partyId];
+  if (!party) return res.status(404).json({ success: false, message: 'Пати не найдена' });
+  const idx = party.members.indexOf(userId);
+  if (idx === -1) return res.json({ success: false, message: 'Вы не в этой пати' });
+  party.members.splice(idx, 1);
+  if (party.members.length === 0) {
+    delete parties[partyId];
+  } else {
+    if (party.leaderId === userId) party.leaderId = party.members[0];
+    party.members.forEach(m => {
+      const s = userSockets[m];
+      if (s) io.to(s).emit('partyUpdate', party);
+    });
+  }
+  res.json({ success: true });
+});
+
 // ------------------ WebSocket ------------------
 io.on('connection', (socket) => {
   console.log('Клиент подключился:', socket.id);
@@ -428,12 +460,10 @@ io.on('connection', (socket) => {
     const userPrivate = privateMessages.filter(m => m.to === userId || m.from === userId);
     socket.emit('privateHistory', userPrivate.slice(-50));
     const user = users[userId];
-    if (user) {
-      socket.emit('friendList', { friends: user.friends, requests: user.pendingRequests });
-    }
-    for (const partyId in parties) {
-      if (parties[partyId].members.includes(userId)) {
-        socket.emit('partyUpdate', parties[partyId]);
+    if (user) socket.emit('friendList', { friends: user.friends, requests: user.pendingRequests });
+    for (const pid in parties) {
+      if (parties[pid].members.includes(userId)) {
+        socket.emit('partyUpdate', parties[pid]);
         break;
       }
     }
@@ -466,7 +496,7 @@ io.on('connection', (socket) => {
     broadcastQueueState();
     const matchParticipants = findMatchInQueue(mode, ranked);
     if (matchParticipants && matchParticipants.length >= (mode === '1v1' ? 2 : mode === '2v2' ? 4 : 10)) {
-      const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze']; // Sakura удалена
+      const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze'];
       const map = maps[Math.floor(Math.random() * maps.length)];
       const match = {
         id: Date.now().toString(),
@@ -518,11 +548,10 @@ io.on('connection', (socket) => {
     if (!match || match.status !== 'waiting_accept') return;
     if (!match.accepted) match.accepted = [];
     if (!match.accepted.includes(userId)) match.accepted.push(userId);
-    const neededCount = match.mode === '1v1' ? 2 : match.mode === '2v2' ? 4 : 10;
-    console.log(`Приняли матч ${matchId}: ${match.accepted.length}/${neededCount}`);
-    if (match.accepted.length === neededCount) {
-      match.status = 'draft'; // переходим к драфту
-      // Выбираем двух капитанов случайно
+    const needed = match.mode === '1v1' ? 2 : match.mode === '2v2' ? 4 : 10;
+    console.log(`Приняли матч ${matchId}: ${match.accepted.length}/${needed}`);
+    if (match.accepted.length === needed) {
+      match.status = 'draft';
       const shuffled = [...match.participants];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -531,13 +560,11 @@ io.on('connection', (socket) => {
       const captains = [shuffled[0], shuffled[1]];
       drafts[match.id] = {
         captains,
-        turn: 0, // 0 = первый капитан выбирает
+        turn: 0,
         remainingPlayers: shuffled.slice(2),
         teamA: [captains[0]],
-        teamB: [captains[1]],
-        pickOrder: [0, 1, 1, 0, 0, 1, 1, 0] // пример порядка для 10 игроков
+        teamB: [captains[1]]
       };
-      // Уведомляем всех участников о начале драфта
       match.participants.forEach(pid => {
         const sid = userSockets[pid];
         if (sid) {
@@ -546,8 +573,7 @@ io.on('connection', (socket) => {
             captains,
             remainingPlayers: drafts[match.id].remainingPlayers,
             teamA: drafts[match.id].teamA,
-            teamB: drafts[match.id].teamB,
-            pickOrder: drafts[match.id].pickOrder
+            teamB: drafts[match.id].teamB
           });
         }
       });
@@ -556,7 +582,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Выбор игрока капитаном
   socket.on('draftPick', ({ matchId, pickedUserId }) => {
     const userId = socketToUser[socket.id];
     const draft = drafts[matchId];
@@ -567,11 +592,8 @@ io.on('connection', (socket) => {
     if (userId !== currentCaptain) return;
     if (!draft.remainingPlayers.includes(pickedUserId)) return;
     draft.remainingPlayers = draft.remainingPlayers.filter(pid => pid !== pickedUserId);
-    if (draft.turn % 2 === 0) {
-      draft.teamA.push(pickedUserId);
-    } else {
-      draft.teamB.push(pickedUserId);
-    }
+    if (draft.turn % 2 === 0) draft.teamA.push(pickedUserId);
+    else draft.teamB.push(pickedUserId);
     draft.turn++;
     if (draft.remainingPlayers.length === 0) {
       match.status = 'map_vote';
@@ -594,24 +616,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Голосование за карту
   socket.on('mapVote', ({ matchId, mapName }) => {
     const userId = socketToUser[socket.id];
     const match = pendingMatches.find(m => m.id === matchId);
     if (!match || match.status !== 'map_vote') return;
     const votes = mapVotes[match.id];
     if (!votes) return;
-    if (!votes.votes[mapName]) votes.votes[mapName] = 0;
-    votes.votes[mapName]++;
+    votes.votes[mapName] = (votes.votes[mapName] || 0) + 1;
     votes.totalVoters++;
     if (votes.totalVoters === match.participants.length) {
-      let bestMap = null;
-      let bestCount = 0;
+      let bestMap = null, bestCount = 0;
       for (const [map, cnt] of Object.entries(votes.votes)) {
-        if (cnt > bestCount) {
-          bestCount = cnt;
-          bestMap = map;
-        }
+        if (cnt > bestCount) { bestCount = cnt; bestMap = map; }
       }
       const finalMap = bestMap || 'Sandstone';
       match.map = finalMap;
@@ -620,7 +636,15 @@ io.on('connection', (socket) => {
       delete mapVotes[match.id];
       match.participants.forEach(pid => {
         const sid = userSockets[pid];
-        if (sid) io.to(sid).emit('lobbyOpen', { matchId, mode: match.mode, ranked: match.ranked, map: finalMap, participants: match.participants, teamA: draft?.teamA || [], teamB: draft?.teamB || [] });
+        if (sid) io.to(sid).emit('lobbyOpen', {
+          matchId,
+          mode: match.mode,
+          ranked: match.ranked,
+          map: finalMap,
+          participants: match.participants,
+          teamA: drafts[match.id]?.teamA || [],
+          teamB: drafts[match.id]?.teamB || []
+        });
       });
     }
   });
@@ -721,11 +745,11 @@ io.on('connection', (socket) => {
         if (idx !== -1) queues[key].splice(idx, 1);
       }
       broadcastQueueState();
-      for (const partyId in parties) {
-        const party = parties[partyId];
+      for (const pid in parties) {
+        const party = parties[pid];
         if (party.members.includes(userId)) {
           party.members = party.members.filter(id => id !== userId);
-          if (party.members.length === 0) delete parties[partyId];
+          if (party.members.length === 0) delete parties[pid];
           else {
             if (party.leaderId === userId) party.leaderId = party.members[0];
             party.members.forEach(m => {

@@ -1,5 +1,3 @@
-// client.js — полная версия со всеми функциями
-
 const socket = io();
 let currentUser = null;
 let currentParty = null;
@@ -32,7 +30,6 @@ const tooltipSiteNick = document.getElementById('tooltipSiteNick');
 const tooltipGameId = document.getElementById('tooltipGameId');
 const tooltipGameNick = document.getElementById('tooltipGameNick');
 
-// Кнопка админ-панели
 let adminButton = null;
 
 // ------------------ Вспомогательные функции ------------------
@@ -191,10 +188,8 @@ function updateUI() {
   if (currentUser.isAdmin && !adminButton) {
     adminButton = document.createElement('button');
     adminButton.innerText = '⚙️ Админ-панель';
-    adminButton.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; z-index: 10000; font-weight: bold; transition: transform 0.2s;';
-    adminButton.addEventListener('click', () => {
-      window.open('/admin.html', '_blank');
-    });
+    adminButton.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; z-index: 10000; font-weight: bold;';
+    adminButton.addEventListener('click', () => window.open('/admin.html', '_blank'));
     document.body.appendChild(adminButton);
   } else if (!currentUser.isAdmin && adminButton) {
     adminButton.remove();
@@ -202,7 +197,6 @@ function updateUI() {
   }
 }
 
-// ------------------ Автовход ------------------
 function tryAutoLogin() {
   const savedUserId = localStorage.getItem('userId');
   const loginTime = localStorage.getItem('loginTime');
@@ -210,9 +204,7 @@ function tryAutoLogin() {
     apiCall(`/api/user/${savedUserId}`, 'GET').then(res => {
       if (res.success) {
         currentUser = res.userData;
-        if (currentUser.stats && currentUser.stats.avatar) {
-          currentUser.avatar = currentUser.stats.avatar;
-        }
+        if (currentUser.stats && currentUser.stats.avatar) currentUser.avatar = currentUser.stats.avatar;
         updateUI();
         loginScreen.style.display = 'none';
         mainScreen.style.display = 'flex';
@@ -231,7 +223,6 @@ function tryAutoLogin() {
   }
 }
 
-// ------------------ Регистрация / Логин ------------------
 async function register(username, password, inGameNick, inGameId) {
   const result = await apiCall('/api/register', 'POST', { username, password, inGameNick, inGameId });
   if (result.success) {
@@ -246,9 +237,7 @@ async function login(username, password) {
   const result = await apiCall('/api/login', 'POST', { username, password });
   if (result.success) {
     currentUser = result.userData;
-    if (currentUser.stats && currentUser.stats.avatar) {
-      currentUser.avatar = currentUser.stats.avatar;
-    }
+    if (currentUser.stats && currentUser.stats.avatar) currentUser.avatar = currentUser.stats.avatar;
     updateUI();
     loginScreen.style.display = 'none';
     mainScreen.style.display = 'flex';
@@ -256,7 +245,6 @@ async function login(username, password) {
     loadFriends();
     loadTopLeaderboard();
     loadClanInfo();
-
     localStorage.setItem('userId', currentUser.id);
     localStorage.setItem('loginTime', Date.now());
   } else {
@@ -264,7 +252,6 @@ async function login(username, password) {
   }
 }
 
-// ------------------ Аватарка ------------------
 async function uploadAvatar(file) {
   const formData = new FormData();
   formData.append('avatar', file);
@@ -282,60 +269,52 @@ async function uploadAvatar(file) {
   }
 }
 
-// ------------------ Друзья ------------------
 async function loadFriends() {
   if (!currentUser) return;
-  if (friendsListDiv) {
-    friendsListDiv.innerHTML = '';
-    for (const friendId of currentUser.friends || []) {
-      const friend = await apiCall(`/api/user/${friendId}`, 'GET');
-      if (friend.success) {
-        const div = document.createElement('div');
-        div.className = 'friend-item';
-        div.innerHTML = `
-          <img src="${getUserAvatar(friend.userData)}" class="friend-avatar" data-id="${friendId}">
-          <span>${escapeHtml(friend.userData.inGameNick)} (${friend.userData.inGameId})</span>
-          <div>
-            <button class="invite-friend" data-id="${friendId}">Пригласить в пати</button>
-            <button class="pm-friend" data-id="${friendId}" data-nick="${friend.userData.inGameNick}">💬</button>
-            <button class="remove-friend" data-id="${friendId}">Удалить</button>
-          </div>
-        `;
-        friendsListDiv.appendChild(div);
-      }
+  if (friendsListDiv) friendsListDiv.innerHTML = '';
+  for (const friendId of currentUser.friends || []) {
+    const friend = await apiCall(`/api/user/${friendId}`, 'GET');
+    if (friend.success) {
+      const div = document.createElement('div');
+      div.className = 'friend-item';
+      div.innerHTML = `
+        <img src="${getUserAvatar(friend.userData)}" class="friend-avatar" data-id="${friendId}">
+        <span>${escapeHtml(friend.userData.inGameNick)} (${friend.userData.inGameId})</span>
+        <div>
+          <button class="invite-friend" data-id="${friendId}">Пригласить в пати</button>
+          <button class="pm-friend" data-id="${friendId}" data-nick="${friend.userData.inGameNick}">💬</button>
+          <button class="remove-friend" data-id="${friendId}">Удалить</button>
+        </div>
+      `;
+      friendsListDiv.appendChild(div);
     }
   }
-  if (friendRequestsDiv) {
-    friendRequestsDiv.innerHTML = '';
-    for (const requestId of currentUser.pendingRequests || []) {
-      const reqUser = await apiCall(`/api/user/${requestId}`, 'GET');
-      if (reqUser.success) {
-        const div = document.createElement('div');
-        div.className = 'friend-item';
-        div.innerHTML = `
-          <img src="${getUserAvatar(reqUser.userData)}" class="friend-avatar" data-id="${requestId}">
-          <span>${escapeHtml(reqUser.userData.inGameNick)} (${reqUser.userData.inGameId})</span>
-          <div>
-            <button class="accept-request" data-id="${requestId}">Принять</button>
-            <button class="reject-request" data-id="${requestId}">Отклонить</button>
-          </div>
-        `;
-        friendRequestsDiv.appendChild(div);
-      }
+  if (friendRequestsDiv) friendRequestsDiv.innerHTML = '';
+  for (const requestId of currentUser.pendingRequests || []) {
+    const reqUser = await apiCall(`/api/user/${requestId}`, 'GET');
+    if (reqUser.success) {
+      const div = document.createElement('div');
+      div.className = 'friend-item';
+      div.innerHTML = `
+        <img src="${getUserAvatar(reqUser.userData)}" class="friend-avatar" data-id="${requestId}">
+        <span>${escapeHtml(reqUser.userData.inGameNick)} (${reqUser.userData.inGameId})</span>
+        <div>
+          <button class="accept-request" data-id="${requestId}">Принять</button>
+          <button class="reject-request" data-id="${requestId}">Отклонить</button>
+        </div>
+      `;
+      friendRequestsDiv.appendChild(div);
     }
   }
 
   document.querySelectorAll('.friend-avatar').forEach(avatar => {
-    avatar.removeEventListener('click', () => {});
     avatar.addEventListener('click', () => showUserProfile(avatar.getAttribute('data-id')));
     addAvatarHoverTooltip(avatar);
   });
   document.querySelectorAll('.invite-friend').forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => inviteToParty(btn.getAttribute('data-id')));
   });
   document.querySelectorAll('.pm-friend').forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => {
       const friendId = btn.getAttribute('data-id');
       const friendNick = btn.getAttribute('data-nick');
@@ -343,15 +322,12 @@ async function loadFriends() {
     });
   });
   document.querySelectorAll('.remove-friend').forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => removeFriend(btn.getAttribute('data-id')));
   });
   document.querySelectorAll('.accept-request').forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => acceptFriendRequest(btn.getAttribute('data-id')));
   });
   document.querySelectorAll('.reject-request').forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => rejectFriendRequest(btn.getAttribute('data-id')));
   });
 }
@@ -435,7 +411,6 @@ async function showUserProfile(userId) {
   modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
 }
 
-// ------------------ Тултип для аватарок (с удалением) ------------------
 function addAvatarHoverTooltip(element) {
   let tooltipDiv = null;
   const mouseenterHandler = async () => {
@@ -464,7 +439,6 @@ function addAvatarHoverTooltip(element) {
   element.addEventListener('mouseleave', mouseleaveHandler);
 }
 
-// ------------------ Пати ------------------
 async function createParty() {
   const res = await apiCall('/api/create-party', 'POST', { leaderId: currentUser.id });
   if (res.success) {
@@ -564,7 +538,6 @@ function showPartyInvite(invite) {
   document.getElementById('declineInviteBtn').addEventListener('click', () => modal.remove());
 }
 
-// ------------------ Очередь ------------------
 let queueState = {};
 
 function updateQueueDisplay() {
@@ -583,9 +556,7 @@ function updateQueueDisplay() {
         const inQueue = queue.some(entry => entry.userId === currentUser.id);
         statusSpan.innerText = inQueue ? 'В очереди' : 'Не в очереди';
         const leaveBtn = document.querySelector(`.leave-queue-btn[data-mode="${mode}"][data-ranked="${ranked}"]`);
-        if (leaveBtn) {
-          leaveBtn.style.display = inQueue ? 'inline-block' : 'none';
-        }
+        if (leaveBtn) leaveBtn.style.display = inQueue ? 'inline-block' : 'none';
       }
     }
   }
@@ -599,9 +570,6 @@ function leaveQueue(mode, ranked) {
   if (!currentUser) return;
   socket.emit('leaveQueue', { mode, ranked });
 }
-
-// ------------------ Матч (драфт, голосование за карту, лобби) ------------------
-let drafts = {}; // локальное хранилище для драфта (на клиенте)
 
 function showMatchFoundModal(match) {
   const oldModal = document.getElementById('matchFoundModal');
@@ -685,7 +653,6 @@ function declineMatch(matchId) {
 }
 
 function handleDraftStart(data) {
-  // data: { matchId, captains, remainingPlayers, teamA, teamB, pickOrder }
   const draftModal = document.createElement('div');
   draftModal.id = 'draftModal';
   draftModal.className = 'modal';
@@ -729,9 +696,7 @@ function handleDraftStart(data) {
     data.teamB = update.teamB;
     data.turn = update.turn;
     updateDraftUI();
-    if (data.remainingPlayers.length === 0) {
-      draftModal.remove();
-    }
+    if (data.remainingPlayers.length === 0) draftModal.remove();
   });
   socket.on('mapVoteStart', (voteData) => {
     if (draftModal) draftModal.remove();
@@ -833,11 +798,8 @@ function openLobby(match) {
     formData.append('userId', currentUser.id);
     const res = await fetch('/api/upload-screenshot', { method: 'POST', body: formData });
     const data = await res.json();
-    if (data.success) {
-      showNotification('Скриншот загружен', 'success');
-    } else {
-      showNotification('Ошибка загрузки', 'error');
-    }
+    if (data.success) showNotification('Скриншот загружен', 'success');
+    else showNotification('Ошибка загрузки', 'error');
   });
   if (closeBtn) closeBtn.addEventListener('click', () => {
     leaveAllQueues();
@@ -856,7 +818,6 @@ function openLobby(match) {
   });
 }
 
-// ------------------ Чат (глобальный) ------------------
 function addChatMessage(msg) {
   const div = document.createElement('div');
   div.className = 'chat-message';
@@ -882,7 +843,6 @@ function sendGlobalChat() {
   }
 }
 
-// ------------------ Личные сообщения ------------------
 let privateHistory = [];
 
 function openPrivateChatModal(userId, userNick) {
@@ -956,7 +916,6 @@ function openPrivateChatModal(userId, userNick) {
   });
 }
 
-// ------------------ Топ-лидерборд ------------------
 let topPlayersData = null;
 
 async function loadTopLeaderboard() {
@@ -987,13 +946,13 @@ function renderTop() {
     const players = topPlayersData[period] || [];
     const tableHtml = `
       <table class="top-table">
-        <thead><tr><th>#</th><th>Игрок</th><th>Победы</th>...</thead>
+        <thead><tr><th>#</th><th>Игрок</th><th>Победы</th></thead>
         <tbody>
           ${players.map((p, idx) => `
             <tr>
               <td>${idx+1}...</td>
-               <td><img src="${getUserAvatar(p.userData)}" class="top-avatar"> ${escapeHtml(p.userData.inGameNick)}</td>
-               <td>${p.wins}</td>
+              <td><img src="${getUserAvatar(p.userData)}" class="top-avatar"> ${escapeHtml(p.userData.inGameNick)}</td>
+              <td>${p.wins}</td>
              </tr>
           `).join('')}
         </tbody>
@@ -1011,7 +970,6 @@ function renderTop() {
   showPeriod('day');
 }
 
-// ------------------ Кланы ------------------
 async function loadClanInfo() {
   const res = await apiCall(`/api/clan-info?userId=${currentUser.id}`, 'GET');
   const clanContainer = document.getElementById('clanView');
@@ -1079,7 +1037,6 @@ async function loadClanInfo() {
   }
 }
 
-// ------------------ Смена ника в игре ------------------
 async function changeInGameNick(newNick) {
   const res = await apiCall('/api/change-nick', 'POST', { userId: currentUser.id, newNick });
   if (res.success) {
@@ -1091,7 +1048,6 @@ async function changeInGameNick(newNick) {
   }
 }
 
-// ------------------ Частицы и анимации ------------------
 function createParticles(x, y) {
   for (let i = 0; i < 12; i++) {
     const particle = document.createElement('div');
@@ -1115,7 +1071,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// ------------------ Инициализация UI ------------------
 function showLoginForm() {
   document.getElementById('loginForm').style.display = 'block';
   document.getElementById('registerForm').style.display = 'none';
@@ -1157,24 +1112,18 @@ document.getElementById('joinPartyBtn').addEventListener('click', () => {
 document.getElementById('chatSendBtn').addEventListener('click', sendGlobalChat);
 document.getElementById('chatInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendGlobalChat(); });
 
-// Загрузка аватарки
 const changeAvatarBtn = document.getElementById('changeAvatarBtn');
 const avatarUpload = document.getElementById('avatarUpload');
 if (changeAvatarBtn) {
-  changeAvatarBtn.addEventListener('click', () => {
-    avatarUpload.click();
-  });
+  changeAvatarBtn.addEventListener('click', () => avatarUpload.click());
 }
 if (avatarUpload) {
   avatarUpload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      await uploadAvatar(file);
-    }
+    if (file) await uploadAvatar(file);
   });
 }
 
-// Тултип для иконки info в профиле
 if (profileInfoIcon) {
   profileInfoIcon.addEventListener('mouseenter', () => {
     const rect = profileInfoIcon.getBoundingClientRect();
@@ -1189,7 +1138,6 @@ if (profileInfoIcon) {
   });
 }
 
-// Навигация по вкладкам
 function setupNavigation() {
   const btns = document.querySelectorAll('.nav-btn');
   const views = {
@@ -1214,11 +1162,9 @@ function setupNavigation() {
 }
 setupNavigation();
 
-// Кнопки очереди
 function setupQueueButtons() {
   const joinBtns = document.querySelectorAll('.queue-mode-btn');
   joinBtns.forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-mode');
       const ranked = btn.getAttribute('data-ranked') === 'true';
@@ -1228,7 +1174,6 @@ function setupQueueButtons() {
   });
   const leaveBtns = document.querySelectorAll('.leave-queue-btn');
   leaveBtns.forEach(btn => {
-    btn.removeEventListener('click', () => {});
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-mode');
       const ranked = btn.getAttribute('data-ranked') === 'true';
@@ -1239,7 +1184,6 @@ function setupQueueButtons() {
 }
 setupQueueButtons();
 
-// Смена ника
 const changeNickBtn = document.getElementById('changeNickBtn');
 const newNickInput = document.getElementById('newInGameNick');
 if (changeNickBtn) {
@@ -1249,7 +1193,6 @@ if (changeNickBtn) {
   });
 }
 
-// ------------------ Socket события ------------------
 socket.on('connect', () => console.log('Socket connected'));
 socket.on('queueUpdate', (queues) => {
   queueState = queues;
@@ -1299,16 +1242,12 @@ socket.on('partyInvite', (invite) => {
   showNotification(`${invite.fromName} приглашает вас в пати`, 'info');
   showPartyInvite(invite);
 });
-socket.on('chatMessage', (msg) => {
-  addChatMessage(msg);
-});
+socket.on('chatMessage', (msg) => addChatMessage(msg));
 socket.on('chatHistory', (history) => {
   chatMessagesDiv.innerHTML = '';
   history.forEach(msg => addChatMessage(msg));
 });
-socket.on('privateHistory', (history) => {
-  privateHistory = history;
-});
+socket.on('privateHistory', (history) => privateHistory = history);
 socket.on('queueError', (err) => showNotification(err.message, 'error'));
 socket.on('muted', (data) => {
   showNotification(`Вы замьючены до ${new Date(data.until).toLocaleString()}. Причина: ${data.reason}`, 'error');

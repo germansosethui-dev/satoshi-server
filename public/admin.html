@@ -1,171 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Panel | ProjectEvolution</title>
-  <style>
-    body { background: #0f172a; color: #e2e8f0; font-family: monospace; padding: 20px; }
-    .match { background: #1e293b; margin: 10px; padding: 10px; border-radius: 8px; }
-    .screenshots img { max-width: 200px; margin: 5px; border: 1px solid #3b82f6; border-radius: 4px; }
-    button { background: #3b82f6; border: none; padding: 5px 10px; margin: 5px; cursor: pointer; border-radius: 4px; font-weight: bold; color: white; transition: 0.2s; }
-    button:hover { background: #2563eb; transform: scale(1.02); }
-    hr { border-color: #334155; }
-    .user-info { margin-top: 20px; background: #1e293b; padding: 15px; border-radius: 8px; }
-    .action-buttons { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .action-buttons button { background: #475569; }
-    .action-buttons button:hover { background: #334155; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>ProjectEvolution | Satoshi</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div id="authCheck" style="text-align: center; margin-top: 50px;">Проверка прав доступа...</div>
-  <div id="adminContent" style="display: none;">
-    <h1>Панель модератора | ProjectEvolution</h1>
-    <div id="matches"></div>
-    <div class="user-info">
-      <h3>Информация о текущем пользователе</h3>
-      <p id="adminUserInfo">Загрузка...</p>
-      <div class="action-buttons">
-        <button id="refreshBtn">Обновить список матчей</button>
+  <div id="app">
+    <!-- Экран входа / регистрации -->
+    <div id="loginScreen" class="screen">
+      <div class="login-container">
+        <h1>ProjectEvolution | Satoshi</h1>
+        <h2>Faceit‑подобная платформа</h2>
+        <div id="loginForm">
+          <input type="text" id="loginUsername" placeholder="Логин" autocomplete="off">
+          <input type="password" id="loginPassword" placeholder="Пароль">
+          <button id="doLoginBtn">Войти</button>
+          <p class="switch-link">Нет аккаунта? <a href="#" id="showRegisterLink">Зарегистрироваться</a></p>
+        </div>
+        <div id="registerForm" style="display: none;">
+          <input type="text" id="regUsername" placeholder="Логин">
+          <input type="password" id="regPassword" placeholder="Пароль">
+          <input type="password" id="regPasswordConfirm" placeholder="Подтвердите пароль">
+          <input type="text" id="regInGameNick" placeholder="Ник в Project Evolution">
+          <input type="text" id="regInGameId" placeholder="ID в Project Evolution">
+          <button id="doRegisterBtn">Зарегистрироваться</button>
+          <p class="switch-link">Уже есть аккаунт? <a href="#" id="showLoginLink">Войти</a></p>
+        </div>
+        <p class="info" id="authMessage"></p>
       </div>
     </div>
-    <div class="user-info">
-      <h3>Управление игроками</h3>
-      <div>
-        <input type="text" id="targetUserId" placeholder="ID игрока">
-        <input type="text" id="reason" placeholder="Причина">
-        <select id="actionType">
-          <option value="mute">Мут (в чате)</option>
-          <option value="ban">Бан (доступ в игру)</option>
-        </select>
-        <input type="number" id="durationHours" placeholder="Длительность (часы)" min="0" step="1">
-        <button id="applyActionBtn">Применить</button>
-        <button id="cancelMatchBtn">Отменить текущий матч (ID матча)</button>
+
+    <!-- Главный экран -->
+    <div id="mainScreen" class="screen" style="display: none;">
+      <div class="sidebar">
+        <div class="profile-card">
+          <div class="profile-header">
+            <div class="avatar-container">
+              <img id="avatar" src="https://via.placeholder.com/80" alt="аватар">
+              <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+              <button id="changeAvatarBtn" class="avatar-upload-btn">📸</button>
+            </div>
+            <div class="profile-info">
+              <div class="streak-container" title="Стрик непрерывных игр">
+                <span id="streakCount">0</span>
+              </div>
+              <div class="nickname-container">
+                <h3 id="nickname">Игрок</h3>
+                <span class="info-icon" id="profileInfoIcon">ℹ️</span>
+                <div class="info-tooltip" id="profileTooltip" style="display: none;">
+                  <div><strong>ID на сайте:</strong> <span id="tooltipSiteId">—</span></div>
+                  <div><strong>Ник на сайте:</strong> <span id="tooltipSiteNick">—</span></div>
+                  <div><strong>ID в игре:</strong> <span id="tooltipGameId">—</span></div>
+                  <div><strong>Ник в игре:</strong> <span id="tooltipGameNick">—</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button id="logoutBtn">Выйти</button>
+        </div>
+        <nav>
+          <button class="nav-btn active" data-view="play">Играть</button>
+          <button class="nav-btn" data-view="profile">Профиль</button>
+          <button class="nav-btn" data-view="history">История</button>
+          <button class="nav-btn" data-view="friends">Друзья</button>
+          <button class="nav-btn" data-view="chat">Чат</button>
+          <button class="nav-btn" data-view="top">Топ</button>
+          <button class="nav-btn" data-view="clan">Клан</button>
+        </nav>
+      </div>
+
+      <div class="content">
+        <!-- Вкладка "Играть" (очередь) -->
+        <div id="playView" class="view active">
+          <h2>Выбор режима</h2>
+          <div id="partyStatus" style="margin-bottom: 10px;"></div>
+          <div id="partyMembers" style="margin-bottom: 15px; background: #1e293b; border-radius: 12px; padding: 10px; display: none;">
+            <h4>Участники пати:</h4>
+            <div id="partyMembersList"></div>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <button id="createPartyBtn" class="glow-btn">Создать пати</button>
+            <input type="text" id="joinPartyCode" placeholder="Код пати" style="width: 150px;">
+            <button id="joinPartyBtn" class="glow-btn">Присоединиться</button>
+          </div>
+          <div class="modes-container">
+            <div class="mode-card"><h3>1x1 Дуэль</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="1v1" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="1v1" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-1v1-unranked">0/2</span><span class="queue-status-text" id="queue-status-1v1-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="1v1" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-1v1-ranked">0/2</span><span class="queue-status-text" id="queue-status-1v1-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="1v1" data-ranked="true" style="display: none;">Выйти</button></div></div>
+            <div class="mode-card"><h3>2x2 Напарники</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="2v2" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="2v2" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-2v2-unranked">0/4</span><span class="queue-status-text" id="queue-status-2v2-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="2v2" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-2v2-ranked">0/4</span><span class="queue-status-text" id="queue-status-2v2-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="2v2" data-ranked="true" style="display: none;">Выйти</button></div></div>
+            <div class="mode-card"><h3>5x5 Соревновательный</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="5v5" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="5v5" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-5v5-unranked">0/10</span><span class="queue-status-text" id="queue-status-5v5-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="5v5" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-5v5-ranked">0/10</span><span class="queue-status-text" id="queue-status-5v5-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="5v5" data-ranked="true" style="display: none;">Выйти</button></div></div>
+          </div>
+          <div id="activeMatchInfo" style="display: none;"></div>
+        </div>
+
+        <!-- Вкладка профиля -->
+        <div id="profileView" class="view" style="display: none;">
+          <h2>Мой профиль</h2>
+          <div class="stats-grid" id="profileStats"></div>
+          <div style="margin-top: 20px;">
+            <input type="text" id="newInGameNick" placeholder="Новый ник в игре" maxlength="20">
+            <button id="changeNickBtn" class="glow-btn">Сменить ник</button>
+          </div>
+        </div>
+
+        <!-- Вкладка истории -->
+        <div id="historyView" class="view" style="display: none;">
+          <h2>История матчей</h2>
+          <ul id="matchList"></ul>
+        </div>
+
+        <!-- Вкладка друзей -->
+        <div id="friendsView" class="view" style="display: none;">
+          <h2>Друзья</h2>
+          <div class="friends-tabs">
+            <button class="friends-tab active" data-tab="friends">Мои друзья</button>
+            <button class="friends-tab" data-tab="requests">Заявки в друзья</button>
+          </div>
+          <div id="friendsList" class="friends-list"></div>
+          <div id="friendRequests" class="friends-list" style="display: none;"></div>
+        </div>
+
+        <!-- Вкладка чата -->
+        <div id="chatView" class="view" style="display: none;">
+          <h2>Глобальный чат</h2>
+          <div id="chatMessages" class="chat-messages"></div>
+          <div class="chat-input"><input type="text" id="chatInput" placeholder="Введите сообщение..."><button id="chatSendBtn" class="glow-btn">Отправить</button></div>
+          <div id="privateChatArea" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Вкладка топа -->
+        <div id="topView" class="view" style="display: none;"></div>
+
+        <!-- Вкладка клана -->
+        <div id="clanView" class="view" style="display: none;"></div>
       </div>
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/client.js"></script>
   <script>
-    let currentAdminId = null;
-
-    async function checkAdmin() {
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
-        document.getElementById('authCheck').innerHTML = 'Вы не авторизованы. <a href="/">Вернуться на главную</a>';
-        return;
-      }
-      const res = await fetch(`/api/check-admin?userId=${userId}`);
-      const data = await res.json();
-      if (data.isAdmin) {
-        currentAdminId = userId;
-        document.getElementById('authCheck').style.display = 'none';
-        document.getElementById('adminContent').style.display = 'block';
-        loadUserInfo(userId);
-        loadMatches();
-      } else {
-        document.getElementById('authCheck').innerHTML = 'У вас нет прав администратора. <a href="/">Вернуться на главную</a>';
-      }
-    }
-
-    async function loadUserInfo(userId) {
-      const res = await fetch(`/api/user/${userId}`);
-      const data = await res.json();
-      if (data.success) {
-        const u = data.userData;
-        document.getElementById('adminUserInfo').innerHTML = `
-          <strong>Логин:</strong> ${u.username}<br>
-          <strong>Ник в игре:</strong> ${u.inGameNick}<br>
-          <strong>ID в игре:</strong> ${u.inGameId}<br>
-          <strong>ID на сайте:</strong> ${u.id}<br>
-          <strong>Роль:</strong> Администратор
-        `;
-      }
-    }
-
-    async function loadMatches() {
-      const res = await fetch('/api/pending-matches');
-      const matches = await res.json();
-      const container = document.getElementById('matches');
-      container.innerHTML = '';
-      if (matches.length === 0) {
-        container.innerHTML = '<p>Нет матчей, ожидающих решения.</p>';
-        return;
-      }
-      for (const m of matches) {
-        const div = document.createElement('div');
-        div.className = 'match';
-        div.innerHTML = `
-          <h3>Матч ${m.id} (${m.mode} ${m.ranked ? 'ранговый' : 'обычный'})</h3>
-          <p>Карта: ${m.map}</p>
-          <p>Участники: ${m.participants.join(', ')}</p>
-          <div class="screenshots">
-            ${Object.entries(m.screenshots || {}).map(([uid, file]) => `
-              <div style="display: inline-block; margin: 10px; text-align: center;">
-                <strong>${uid}</strong><br>
-                <img src="/uploads/${file}" style="max-width: 200px;"><br>
-                <button onclick="setWinner('${m.id}', '${uid}')">Победитель</button>
-              </div>
-            `).join('')}
-          </div>
-          <hr>
-        `;
-        container.appendChild(div);
-      }
-    }
-
-    async function setWinner(matchId, winnerId) {
-      const res = await fetch('/api/resolve-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId, winnerId })
+    // Переключение вкладок внутри раздела "Друзья"
+    document.querySelectorAll('.friends-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        document.querySelectorAll('.friends-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (target === 'friends') {
+          document.getElementById('friendsList').style.display = 'block';
+          document.getElementById('friendRequests').style.display = 'none';
+        } else {
+          document.getElementById('friendsList').style.display = 'none';
+          document.getElementById('friendRequests').style.display = 'block';
+        }
       });
-      const data = await res.json();
-      if (data.success) {
-        alert('Результат засчитан');
-        loadMatches();
-      } else {
-        alert('Ошибка');
-      }
-    }
-
-    async function applyAction() {
-      const targetUserId = document.getElementById('targetUserId').value.trim();
-      const reason = document.getElementById('reason').value.trim();
-      const action = document.getElementById('actionType').value;
-      const durationHours = parseInt(document.getElementById('durationHours').value);
-      if (!targetUserId) return alert('Введите ID игрока');
-      const res = await fetch('/api/admin-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminId: currentAdminId, targetUserId, action, reason, durationHours })
-      });
-      const data = await res.json();
-      alert(data.message);
-      if (data.success) {
-        document.getElementById('targetUserId').value = '';
-        document.getElementById('reason').value = '';
-        document.getElementById('durationHours').value = '';
-      }
-    }
-
-    async function cancelMatch() {
-      const matchId = prompt('Введите ID матча для отмены:');
-      if (!matchId) return;
-      const res = await fetch('/api/cancel-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminId: currentAdminId, matchId })
-      });
-      const data = await res.json();
-      alert(data.message);
-      if (data.success) loadMatches();
-    }
-
-    document.getElementById('refreshBtn').addEventListener('click', loadMatches);
-    document.getElementById('applyActionBtn').addEventListener('click', applyAction);
-    document.getElementById('cancelMatchBtn').addEventListener('click', cancelMatch);
-
-    checkAdmin();
-    setInterval(loadMatches, 5000);
+    });
   </script>
 </body>
 </html>
