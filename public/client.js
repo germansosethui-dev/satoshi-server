@@ -6,7 +6,7 @@ let currentParty = null;
 let currentMatch = null;
 let matchTimerInterval = null;
 let activeModal = null;
-let activeTooltip = null; // для тултипа аватарки
+let activeTooltip = null;
 
 // ------------------ DOM элементы ------------------
 const loginScreen = document.getElementById('loginScreen');
@@ -32,7 +32,7 @@ const tooltipSiteNick = document.getElementById('tooltipSiteNick');
 const tooltipGameId = document.getElementById('tooltipGameId');
 const tooltipGameNick = document.getElementById('tooltipGameNick');
 
-// Кнопка админ-панели (будет создана динамически)
+// Кнопка админ-панели
 let adminButton = null;
 
 // ------------------ Вспомогательные функции ------------------
@@ -188,11 +188,10 @@ function updateUI() {
     }
   }
 
-  // Показать кнопку админ-панели, если пользователь админ
   if (currentUser.isAdmin && !adminButton) {
     adminButton = document.createElement('button');
     adminButton.innerText = '⚙️ Админ-панель';
-    adminButton.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; z-index: 10000; font-weight: bold;';
+    adminButton.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; z-index: 10000; font-weight: bold; transition: transform 0.2s;';
     adminButton.addEventListener('click', () => {
       window.open('/admin.html', '_blank');
     });
@@ -200,6 +199,35 @@ function updateUI() {
   } else if (!currentUser.isAdmin && adminButton) {
     adminButton.remove();
     adminButton = null;
+  }
+}
+
+// ------------------ Автовход ------------------
+function tryAutoLogin() {
+  const savedUserId = localStorage.getItem('userId');
+  const loginTime = localStorage.getItem('loginTime');
+  if (savedUserId && loginTime && (Date.now() - parseInt(loginTime) < 24 * 60 * 60 * 1000)) {
+    apiCall(`/api/user/${savedUserId}`, 'GET').then(res => {
+      if (res.success) {
+        currentUser = res.userData;
+        if (currentUser.stats && currentUser.stats.avatar) {
+          currentUser.avatar = currentUser.stats.avatar;
+        }
+        updateUI();
+        loginScreen.style.display = 'none';
+        mainScreen.style.display = 'flex';
+        socket.emit('auth', currentUser.id);
+        loadFriends();
+        loadTopLeaderboard();
+        loadClanInfo();
+      } else {
+        localStorage.removeItem('userId');
+        localStorage.removeItem('loginTime');
+      }
+    }).catch(() => {
+      localStorage.removeItem('userId');
+      localStorage.removeItem('loginTime');
+    });
   }
 }
 
@@ -228,6 +256,9 @@ async function login(username, password) {
     loadFriends();
     loadTopLeaderboard();
     loadClanInfo();
+
+    localStorage.setItem('userId', currentUser.id);
+    localStorage.setItem('loginTime', Date.now());
   } else {
     authMessage.innerText = result.message;
   }
@@ -570,6 +601,8 @@ function leaveQueue(mode, ranked) {
 }
 
 // ------------------ Матч (драфт, голосование за карту, лобби) ------------------
+let drafts = {}; // локальное хранилище для драфта (на клиенте)
+
 function showMatchFoundModal(match) {
   const oldModal = document.getElementById('matchFoundModal');
   if (oldModal) oldModal.remove();
@@ -651,9 +684,8 @@ function declineMatch(matchId) {
   if (matchTimerInterval) clearInterval(matchTimerInterval);
 }
 
-// Драфт и голосование за карту
 function handleDraftStart(data) {
-  // Создаём модальное окно драфта
+  // data: { matchId, captains, remainingPlayers, teamA, teamB, pickOrder }
   const draftModal = document.createElement('div');
   draftModal.id = 'draftModal';
   draftModal.className = 'modal';
@@ -691,7 +723,6 @@ function handleDraftStart(data) {
     });
   };
   updateDraftUI();
-  // Подписка на обновления драфта
   socket.on('draftUpdate', (update) => {
     data.remainingPlayers = update.remainingPlayers;
     data.teamA = update.teamA;
@@ -726,7 +757,6 @@ function handleDraftStart(data) {
   });
 }
 
-// Лобби (теперь с командами)
 function openLobby(match) {
   if (matchTimerInterval) clearInterval(matchTimerInterval);
   currentMatch = match;
@@ -852,7 +882,7 @@ function sendGlobalChat() {
   }
 }
 
-// ------------------ Личные сообщения (отдельное окно) ------------------
+// ------------------ Личные сообщения ------------------
 let privateHistory = [];
 
 function openPrivateChatModal(userId, userNick) {
@@ -957,17 +987,17 @@ function renderTop() {
     const players = topPlayersData[period] || [];
     const tableHtml = `
       <table class="top-table">
-        <thead><tr><th>#</th><th>Игрок</th><th>Победы</th></thead>
+        <thead><tr><th>#</th><th>Игрок</th><th>Победы</th>...</thead>
         <tbody>
           ${players.map((p, idx) => `
             <tr>
-              <td>${idx+1}</td>
-              <td><img src="${getUserAvatar(p.userData)}" class="top-avatar"> ${escapeHtml(p.userData.inGameNick)}</td>
-              <td>${p.wins}</td>
-            </tr>
+              <td>${idx+1}...</td>
+               <td><img src="${getUserAvatar(p.userData)}" class="top-avatar"> ${escapeHtml(p.userData.inGameNick)}</td>
+               <td>${p.wins}</td>
+             </tr>
           `).join('')}
         </tbody>
-      </table>
+       </table>
     `;
     document.getElementById('topTable').innerHTML = tableHtml;
   };
@@ -984,61 +1014,68 @@ function renderTop() {
 // ------------------ Кланы ------------------
 async function loadClanInfo() {
   const res = await apiCall(`/api/clan-info?userId=${currentUser.id}`, 'GET');
+  const clanContainer = document.getElementById('clanView');
+  if (!clanContainer) return;
   if (res.success && res.clan) {
-    // Отображаем информацию в clanView
-    const clanContainer = document.getElementById('clanView');
-    if (clanContainer) {
-      clanContainer.innerHTML = `
-        <h2>Клан: ${escapeHtml(res.clan.name)}</h2>
-        <p>Создатель: ${escapeHtml(users[res.clan.ownerId]?.inGameNick)}</p>
-        <p>Участники: ${res.clan.members.map(m => m.inGameNick).join(', ')}</p>
-        <button id="leaveClanBtn">Покинуть клан</button>
-      `;
-      document.getElementById('leaveClanBtn')?.addEventListener('click', async () => {
-        const result = await apiCall('/api/leave-clan', 'POST', { userId: currentUser.id });
-        if (result.success) {
-          showNotification('Вы вышли из клана', 'success');
-          loadClanInfo();
-        } else {
-          showNotification('Ошибка', 'error');
-        }
-      });
-    }
+    const clan = res.clan;
+    clanContainer.innerHTML = `
+      <h2>Клан: ${escapeHtml(clan.tag)} | ${escapeHtml(clan.name)}</h2>
+      <p>Создатель: ${escapeHtml(users[clan.ownerId]?.inGameNick)}</p>
+      <p>Участники: ${clan.members.length} / ${clan.maxMembers}</p>
+      <ul id="clanMembersList">
+        ${clan.members.map(m => `<li><img src="${getUserAvatar(m)}" class="clan-avatar"> ${escapeHtml(m.inGameNick)}</li>`).join('')}
+      </ul>
+      <button id="leaveClanBtn" class="glow-btn">Покинуть клан</button>
+    `;
+    document.getElementById('leaveClanBtn')?.addEventListener('click', async () => {
+      const result = await apiCall('/api/leave-clan', 'POST', { userId: currentUser.id });
+      if (result.success) {
+        showNotification('Вы вышли из клана', 'success');
+        loadClanInfo();
+      } else {
+        showNotification('Ошибка', 'error');
+      }
+    });
   } else {
-    const clanContainer = document.getElementById('clanView');
-    if (clanContainer) {
-      clanContainer.innerHTML = `
-        <h2>Клан</h2>
-        <p>Вы не состоите в клане.</p>
-        <input type="text" id="newClanName" placeholder="Название клана">
-        <button id="createClanBtn">Создать клан</button>
-        <br><br>
-        <input type="text" id="joinClanCode" placeholder="ID клана для присоединения">
-        <button id="joinClanBtn">Присоединиться</button>
-      `;
-      document.getElementById('createClanBtn')?.addEventListener('click', async () => {
-        const name = document.getElementById('newClanName').value.trim();
-        if (!name) return;
-        const result = await apiCall('/api/create-clan', 'POST', { userId: currentUser.id, clanName: name });
-        if (result.success) {
-          showNotification('Клан создан', 'success');
-          loadClanInfo();
-        } else {
-          showNotification(result.message, 'error');
-        }
-      });
-      document.getElementById('joinClanBtn')?.addEventListener('click', async () => {
-        const clanId = document.getElementById('joinClanCode').value.trim();
-        if (!clanId) return;
-        const result = await apiCall('/api/join-clan', 'POST', { userId: currentUser.id, clanId });
-        if (result.success) {
-          showNotification('Вы присоединились к клану', 'success');
-          loadClanInfo();
-        } else {
-          showNotification(result.message, 'error');
-        }
-      });
-    }
+    clanContainer.innerHTML = `
+      <h2>Клан</h2>
+      <p>Вы не состоите в клане.</p>
+      <div>
+        <input type="text" id="clanTag" placeholder="Тег клана (до 5 символов)" maxlength="5">
+        <input type="text" id="clanName" placeholder="Название клана (до 32 символов)" maxlength="32">
+        <button id="createClanBtn" class="glow-btn">Создать клан</button>
+      </div>
+      <div style="margin-top: 20px;">
+        <input type="text" id="joinClanId" placeholder="ID клана для присоединения">
+        <button id="joinClanBtn" class="glow-btn">Присоединиться</button>
+      </div>
+    `;
+    document.getElementById('createClanBtn')?.addEventListener('click', async () => {
+      const tag = document.getElementById('clanTag').value.trim();
+      const name = document.getElementById('clanName').value.trim();
+      if (!tag || !name) {
+        showNotification('Заполните тег и название', 'error');
+        return;
+      }
+      const result = await apiCall('/api/create-clan', 'POST', { userId: currentUser.id, clanTag: tag, clanName: name });
+      if (result.success) {
+        showNotification('Клан создан', 'success');
+        loadClanInfo();
+      } else {
+        showNotification(result.message, 'error');
+      }
+    });
+    document.getElementById('joinClanBtn')?.addEventListener('click', async () => {
+      const clanId = document.getElementById('joinClanId').value.trim();
+      if (!clanId) return;
+      const result = await apiCall('/api/join-clan', 'POST', { userId: currentUser.id, clanId });
+      if (result.success) {
+        showNotification('Вы присоединились к клану', 'success');
+        loadClanInfo();
+      } else {
+        showNotification(result.message, 'error');
+      }
+    });
   }
 }
 
@@ -1053,6 +1090,30 @@ async function changeInGameNick(newNick) {
     showNotification(res.message, 'error');
   }
 }
+
+// ------------------ Частицы и анимации ------------------
+function createParticles(x, y) {
+  for (let i = 0; i < 12; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 5;
+    const dx = Math.cos(angle) * speed;
+    const dy = Math.sin(angle) * speed;
+    particle.style.setProperty('--dx', `${dx}px`);
+    particle.style.setProperty('--dy', `${dy}px`);
+    particle.style.left = `${x}px`;
+    particle.style.top = `${y}px`;
+    document.body.appendChild(particle);
+    setTimeout(() => particle.remove(), 600);
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.closest('button, .queue-mode-btn, .leave-queue-btn, .nav-btn, .friend-item button, .accept-request, .reject-request, #createPartyBtn, #joinPartyBtn, #chatSendBtn, #searchBtn')) {
+    createParticles(e.clientX, e.clientY);
+  }
+});
 
 // ------------------ Инициализация UI ------------------
 function showLoginForm() {
@@ -1083,7 +1144,11 @@ document.getElementById('doRegisterBtn').addEventListener('click', () => {
 });
 document.getElementById('showRegisterLink').addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
 document.getElementById('showLoginLink').addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
-document.getElementById('logoutBtn').addEventListener('click', () => location.reload());
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('userId');
+  localStorage.removeItem('loginTime');
+  location.reload();
+});
 document.getElementById('createPartyBtn').addEventListener('click', createParty);
 document.getElementById('joinPartyBtn').addEventListener('click', () => {
   const partyCode = document.getElementById('joinPartyCode').value.trim();
@@ -1124,7 +1189,7 @@ if (profileInfoIcon) {
   });
 }
 
-// Навигация по вкладкам (добавлены "Топ" и "Клан")
+// Навигация по вкладкам
 function setupNavigation() {
   const btns = document.querySelectorAll('.nav-btn');
   const views = {
@@ -1174,6 +1239,16 @@ function setupQueueButtons() {
 }
 setupQueueButtons();
 
+// Смена ника
+const changeNickBtn = document.getElementById('changeNickBtn');
+const newNickInput = document.getElementById('newInGameNick');
+if (changeNickBtn) {
+  changeNickBtn.addEventListener('click', () => {
+    const newNick = newNickInput?.value.trim();
+    if (newNick) changeInGameNick(newNick);
+  });
+}
+
 // ------------------ Socket события ------------------
 socket.on('connect', () => console.log('Socket connected'));
 socket.on('queueUpdate', (queues) => {
@@ -1191,7 +1266,6 @@ socket.on('matchCancelled', () => {
   if (currentParty) leaveParty(currentParty.id);
 });
 socket.on('draftStart', (data) => {
-  // данные о драфте
   currentMatch = { matchId: data.matchId };
   handleDraftStart(data);
 });
@@ -1241,6 +1315,7 @@ socket.on('muted', (data) => {
 });
 socket.on('banned', (data) => {
   showNotification(`Вы забанены до ${new Date(data.until).toLocaleString()}. Причина: ${data.reason}`, 'error');
-  // можно разлогинить
   setTimeout(() => location.reload(), 3000);
 });
+
+tryAutoLogin();

@@ -36,24 +36,23 @@ const queues = {
   '2v2_unranked': [], '2v2_ranked': [],
   '5v5_unranked': [], '5v5_ranked': []
 };
-const pendingMatches = [];        // матчи в ожидании принятия/лобби
+const pendingMatches = [];
 const chatMessages = [];
 const privateMessages = [];
 const socketToUser = {};
 const userSockets = {};
 
 // Баны и муты
-const bans = {};        // userId -> { until: timestamp, reason }
-const mutes = {};       // userId -> { until: timestamp, reason }
+const bans = {};
+const mutes = {};
 
-// Топ игроков (за день/неделю/месяц)
-const winHistory = [];  // { userId, timestamp } – добавляем при каждой победе в рейтинговом матче
+// Топ игроков
+const winHistory = [];
 const leaderboardCache = { day: [], week: [], month: [] };
 let lastLeaderboardUpdate = 0;
 
 // Кланы
-const clans = {};       // clanId -> { name, ownerId, members: [userId], created, winsRequired: 10 }
-// Для проверки права создания клана: количество рейтинговых побед у пользователя (поле stats.totalRankedWins)
+const clans = {}; // clanId -> { name, tag, ownerId, members: [userId], created, maxMembers: 50 }
 
 // ------------------ Вспомогательные функции ------------------
 function generateUserId() {
@@ -72,7 +71,7 @@ function getDefaultStats() {
     mmr_1v1: 100, matches_1v1: 0, wins_1v1: 0, losses_1v1: 0, placement_1v1: 0,
     mmr_2v2: 100, matches_2v2: 0, wins_2v2: 0, losses_2v2: 0, placement_2v2: 0,
     mmr_5v5: 100, matches_5v5: 0, wins_5v5: 0, losses_5v5: 0, placement_5v5: 0,
-    totalRankedWins: 0,  // общее количество побед в рейтинговых матчах (для клана)
+    totalRankedWins: 0,
     matchHistory: [],
     avatar: '',
     streak: 0
@@ -155,7 +154,6 @@ function sendPrivateMessage(toUserId, fromUserId, text) {
   }
 }
 
-// Проверка, не забанен ли пользователь
 function isBanned(userId) {
   const ban = bans[userId];
   if (ban && ban.until > Date.now()) return true;
@@ -163,7 +161,6 @@ function isBanned(userId) {
   return false;
 }
 
-// Проверка, не замьючен ли пользователь
 function isMuted(userId) {
   const mute = mutes[userId];
   if (mute && mute.until > Date.now()) return true;
@@ -171,7 +168,6 @@ function isMuted(userId) {
   return false;
 }
 
-// Обновление топ-лидерборда (вызывается раз в 5 минут или при победе)
 function updateLeaderboard() {
   const now = Date.now();
   const dayAgo = now - 24 * 60 * 60 * 1000;
@@ -201,10 +197,8 @@ function updateLeaderboard() {
   lastLeaderboardUpdate = now;
 }
 
-// Добавление победы в историю (вызывать при завершении рейтингового матча)
 function addWinToHistory(userId) {
   winHistory.push({ userId, timestamp: Date.now() });
-  // Ограничим размер, чтобы не раздувать
   if (winHistory.length > 10000) winHistory.splice(0, 1000);
   updateLeaderboard();
 }
@@ -285,7 +279,6 @@ app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
   res.json({ success: true, avatarUrl });
 });
 
-// Проверка прав администратора
 app.get('/api/check-admin', (req, res) => {
   const userId = req.query.userId;
   if (!userId || !users[userId]) {
@@ -294,7 +287,6 @@ app.get('/api/check-admin', (req, res) => {
   res.json({ isAdmin: users[userId].isAdmin });
 });
 
-// Админские действия: мут/бан
 app.post('/api/admin-action', (req, res) => {
   const { adminId, targetUserId, action, reason, durationHours } = req.body;
   if (!users[adminId] || !users[adminId].isAdmin) return res.status(403).json({ success: false, message: 'Недостаточно прав' });
@@ -314,7 +306,6 @@ app.post('/api/admin-action', (req, res) => {
     const socketId = userSockets[targetUserId];
     if (socketId) {
       io.to(socketId).emit('banned', { until, reason });
-      // принудительно разорвать соединение
       io.sockets.sockets.get(socketId)?.disconnect();
     }
   } else {
@@ -323,20 +314,17 @@ app.post('/api/admin-action', (req, res) => {
   res.json({ success: true, message: `${action === 'mute' ? 'Мут' : 'Бан'} применён до ${new Date(until).toLocaleString()}` });
 });
 
-// Отмена матча
 app.post('/api/cancel-match', (req, res) => {
   const { adminId, matchId } = req.body;
   if (!users[adminId] || !users[adminId].isAdmin) return res.status(403).json({ success: false, message: 'Недостаточно прав' });
   const matchIndex = pendingMatches.findIndex(m => m.id === matchId);
   if (matchIndex === -1) return res.status(404).json({ success: false, message: 'Матч не найден' });
   const match = pendingMatches[matchIndex];
-  // Проверка: админ не может отменить матч, в котором участвует другой админ (кроме себя)
   const otherAdmins = match.participants.filter(pid => pid !== adminId && users[pid]?.isAdmin);
   if (otherAdmins.length > 0) {
     return res.status(403).json({ success: false, message: 'Нельзя отменить матч, в котором участвует другой администратор' });
   }
   pendingMatches.splice(matchIndex, 1);
-  // Уведомить участников
   match.participants.forEach(pid => {
     const sid = userSockets[pid];
     if (sid) io.to(sid).emit('matchCancelled', { matchId });
@@ -344,13 +332,11 @@ app.post('/api/cancel-match', (req, res) => {
   res.json({ success: true, message: 'Матч отменён' });
 });
 
-// Топ игроков
 app.get('/api/top-players', (req, res) => {
   if (Date.now() - lastLeaderboardUpdate > 5 * 60 * 1000) updateLeaderboard();
   res.json({ success: true, data: leaderboardCache });
 });
 
-// Смена ника в игре
 app.post('/api/change-nick', (req, res) => {
   const { userId, newNick } = req.body;
   if (!users[userId]) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
@@ -359,7 +345,6 @@ app.post('/api/change-nick', (req, res) => {
   res.json({ success: true });
 });
 
-// Информация о клане пользователя
 app.get('/api/clan-info', (req, res) => {
   const { userId } = req.query;
   if (!users[userId]) return res.status(404).json({ success: false });
@@ -367,31 +352,36 @@ app.get('/api/clan-info', (req, res) => {
   if (!clanId) return res.json({ success: true, clan: null });
   const clan = clans[clanId];
   if (!clan) return res.json({ success: true, clan: null });
-  res.json({ success: true, clan: { ...clan, members: clan.members.map(mid => ({ id: mid, username: users[mid]?.username, inGameNick: users[mid]?.inGameNick })) } });
+  const membersData = clan.members.map(mid => {
+    const m = users[mid];
+    return { id: mid, username: m?.username, inGameNick: m?.inGameNick, avatar: m?.stats.avatar };
+  });
+  res.json({ success: true, clan: { ...clan, members: membersData } });
 });
 
-// Создание клана
 app.post('/api/create-clan', (req, res) => {
-  const { userId, clanName } = req.body;
+  const { userId, clanTag, clanName } = req.body;
   const user = users[userId];
   if (!user) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
   if (user.clanId) return res.status(400).json({ success: false, message: 'Вы уже состоите в клане' });
+  if (!clanTag || clanTag.length > 5) return res.status(400).json({ success: false, message: 'Тег клана должен быть до 5 символов' });
+  if (!clanName || clanName.length > 32) return res.status(400).json({ success: false, message: 'Название клана должно быть до 32 символов' });
   if (!user.isAdmin && user.stats.totalRankedWins < 10) {
     return res.status(400).json({ success: false, message: 'Для создания клана необходимо 10 побед в рейтинговых матчах' });
   }
   const clanId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
   clans[clanId] = {
     name: clanName,
+    tag: clanTag,
     ownerId: userId,
     members: [userId],
     created: Date.now(),
-    winsRequired: 10
+    maxMembers: 50
   };
   user.clanId = clanId;
   res.json({ success: true, clanId });
 });
 
-// Присоединение к клану (по приглашению или заявке – для упрощения просто присоединение)
 app.post('/api/join-clan', (req, res) => {
   const { userId, clanId } = req.body;
   const user = users[userId];
@@ -399,12 +389,14 @@ app.post('/api/join-clan', (req, res) => {
   if (user.clanId) return res.status(400).json({ success: false, message: 'Вы уже в клане' });
   const clan = clans[clanId];
   if (!clan) return res.status(404).json({ success: false, message: 'Клан не найден' });
+  if (clan.members.length >= clan.maxMembers) {
+    return res.status(400).json({ success: false, message: 'Клан заполнен' });
+  }
   clan.members.push(userId);
   user.clanId = clanId;
   res.json({ success: true });
 });
 
-// Выход из клана
 app.post('/api/leave-clan', (req, res) => {
   const { userId } = req.body;
   const user = users[userId];
@@ -418,16 +410,7 @@ app.post('/api/leave-clan', (req, res) => {
   res.json({ success: true });
 });
 
-// ------------------ Сокеты (добавляем выбор лидеров, пик команд, голосование за карту) ------------------
-// В момент создания матча (перед ожиданием принятия) сервер выбирает двух капитанов из участников (случайно).
-// После того как все приняли матч, сервер отправляет событие 'draftStart' с информацией о капитанах и списке игроков.
-// Клиент показывает интерфейс выбора команд. Капитаны по очереди выбирают игроков, сервер хранит состояние драфта.
-// Когда команды сформированы, сервер запускает голосование за карту (список карт без Sakura).
-// После голосования сервер отправляет 'matchReady' с итоговыми командами и картой.
-
-const drafts = {}; // matchId -> { captains: [cap1, cap2], turn: 0, remainingPlayers: [], teamA: [], teamB: [] }
-const mapVotes = {}; // matchId -> { votes: { mapName: count }, totalVoters }
-
+// ------------------ WebSocket ------------------
 io.on('connection', (socket) => {
   console.log('Клиент подключился:', socket.id);
 
@@ -580,11 +563,9 @@ io.on('connection', (socket) => {
     if (!draft) return;
     const match = pendingMatches.find(m => m.id === matchId);
     if (!match || match.status !== 'draft') return;
-    // Проверяем, что текущий пользователь – капитан и его очередь
     const currentCaptain = draft.captains[draft.turn % 2];
     if (userId !== currentCaptain) return;
     if (!draft.remainingPlayers.includes(pickedUserId)) return;
-    // Удаляем из remaining и добавляем в команду
     draft.remainingPlayers = draft.remainingPlayers.filter(pid => pid !== pickedUserId);
     if (draft.turn % 2 === 0) {
       draft.teamA.push(pickedUserId);
@@ -592,18 +573,15 @@ io.on('connection', (socket) => {
       draft.teamB.push(pickedUserId);
     }
     draft.turn++;
-    // Если все игроки выбраны, переходим к голосованию за карту
     if (draft.remainingPlayers.length === 0) {
       match.status = 'map_vote';
       const maps = ['Sandstone', 'Rust', 'Province', 'Dune', 'Breeze'];
       mapVotes[match.id] = { votes: {}, totalVoters: 0 };
-      // Рассылаем начало голосования за карту
       match.participants.forEach(pid => {
         const sid = userSockets[pid];
         if (sid) io.to(sid).emit('mapVoteStart', { matchId, maps });
       });
     } else {
-      // Обновляем всех о новом состоянии
       match.participants.forEach(pid => {
         const sid = userSockets[pid];
         if (sid) io.to(sid).emit('draftUpdate', {
@@ -626,7 +604,6 @@ io.on('connection', (socket) => {
     if (!votes.votes[mapName]) votes.votes[mapName] = 0;
     votes.votes[mapName]++;
     votes.totalVoters++;
-    // Если все проголосовали, выбираем карту с наибольшим количеством голосов
     if (votes.totalVoters === match.participants.length) {
       let bestMap = null;
       let bestCount = 0;
@@ -732,15 +709,6 @@ io.on('connection', (socket) => {
         if (s) io.to(s).emit('partyUpdate', party);
       });
     }
-  });
-
-  // Обработка результатов матча (должна обновлять статистику и добавлять победы в историю)
-  // Здесь нужно вызвать addWinToHistory(winnerId) при каждом рейтинговом матче
-  // (добавим отдельный эндпоинт для модератора, который уже вызывает addWinToHistory)
-  socket.on('matchResult', ({ matchId, winnerId }) => {
-    // В реальном приложении это делается через /api/resolve-match
-    // Мы уже имеем /api/resolve-match, который обновляет статистику и вызывает addWinToHistory.
-    // Поэтому сокет-событие не нужно.
   });
 
   socket.on('disconnect', () => {

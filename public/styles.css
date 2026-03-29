@@ -10,13 +10,55 @@ body {
   color: #e2e8f0;
 }
 
-/* Синяя обводка при наведении */
+/* Общие анимации и частицы */
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); background: rgba(59,130,246,0.3); }
+  100% { transform: scale(1); }
+}
+@keyframes glow {
+  0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(59,130,246,0); }
+  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+}
+
+.particle {
+  position: fixed;
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+  background: #3b82f6;
+  border-radius: 50%;
+  animation: particleFly 0.6s ease-out forwards;
+  z-index: 10000;
+}
+@keyframes particleFly {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+
+/* Кнопки и интерактивные элементы */
 button, .nav-btn, .queue-mode-btn, .leave-queue-btn, .friend-item button,
 .invite-friend, .pm-friend, .accept-request, .reject-request, #createPartyBtn, #joinPartyBtn,
 #searchBtn, .add-friend-from-party, .add-friend-lobby, .avatar-upload-btn,
 .info-icon, .chat-avatar, .participant-avatar, .lobby-avatar, .friend-avatar,
-.mini-avatar, .leave-party-btn, .friends-tab {
-  transition: outline 0.1s ease;
+.mini-avatar, .leave-party-btn, .friends-tab, .top-tab, .glow-btn {
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
 }
 button:hover, .nav-btn:hover, .queue-mode-btn:hover, .leave-queue-btn:hover,
 .friend-item button:hover, .invite-friend:hover, .pm-friend:hover,
@@ -24,9 +66,14 @@ button:hover, .nav-btn:hover, .queue-mode-btn:hover, .leave-queue-btn:hover,
 #searchBtn:hover, .add-friend-from-party:hover, .add-friend-lobby:hover,
 .avatar-upload-btn:hover, .info-icon:hover, .chat-avatar:hover,
 .participant-avatar:hover, .lobby-avatar:hover, .friend-avatar:hover,
-.mini-avatar:hover, .leave-party-btn:hover, .friends-tab:hover {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+.mini-avatar:hover, .leave-party-btn:hover, .friends-tab:hover, .top-tab:hover,
+.glow-btn:hover {
+  transform: scale(1.02);
+  background: #334155;
+  box-shadow: 0 0 12px rgba(59,130,246,0.3);
+}
+button:active, .nav-btn:active, .queue-mode-btn:active, .glow-btn:active {
+  transform: scale(0.96);
 }
 
 /* Экран входа */
@@ -64,7 +111,6 @@ button:hover, .nav-btn:hover, .queue-mode-btn:hover, .leave-queue-btn:hover,
   font-weight: 600;
   cursor: pointer;
   width: 100%;
-  transition: 0.2s;
 }
 .login-container button:hover {
   background: #2563eb;
@@ -248,6 +294,16 @@ nav {
 .stat-row strong {
   font-weight: 700;
   color: #fff;
+}
+.admin-badge {
+  background: #fbbf24;
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  display: inline-block;
+  margin-top: 8px;
 }
 
 /* Карточки режимов */
@@ -614,41 +670,55 @@ nav {
   margin: 8px 0;
 }
 
-/* Кнопки */
-#createPartyBtn, #joinPartyBtn, #searchBtn {
-  background: #1e293b;
+/* Топ */
+.top-tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.top-tab {
+  background: none;
   border: none;
   padding: 8px 16px;
-  border-radius: 8px;
-  color: white;
+  color: #94a3b8;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
 }
-#createPartyBtn:hover, #joinPartyBtn:hover, #searchBtn:hover {
-  background: #334155;
+.top-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+.top-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.top-table th, .top-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+}
+.top-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 8px;
 }
 
-/* Тултип для аватарок */
-.avatar-tooltip {
-  position: absolute;
-  background: #1e293b;
-  border: 1px solid #3b82f6;
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 12px;
-  z-index: 1000;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+/* Клан */
+.clan-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 8px;
 }
 
 /* Уведомления */
-@keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-@keyframes slideOut {
-  from { transform: translateX(0); opacity: 1; }
-  to { transform: translateX(100%); opacity: 0; }
+.notification {
+  animation: slideIn 0.3s ease, pulse 0.5s ease 0.3s;
 }
 .copy-code-btn {
   background: #334155;
@@ -662,52 +732,8 @@ nav {
 .copy-code-btn:hover {
   background: #475569;
 }
-/* Дополнительные стили для визуализации */
-button, .nav-btn, .queue-mode-btn, .leave-queue-btn, .friend-item button,
-.invite-friend, .pm-friend, .accept-request, .reject-request, #createPartyBtn, #joinPartyBtn,
-#searchBtn, .add-friend-from-party, .add-friend-lobby, .avatar-upload-btn,
-.info-icon, .chat-avatar, .participant-avatar, .lobby-avatar, .friend-avatar,
-.mini-avatar, .leave-party-btn, .friends-tab {
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-button:active, .nav-btn:active, .queue-mode-btn:active {
-  transform: scale(0.96);
-}
 
-/* Анимация для уведомлений */
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); background-color: rgba(59,130,246,0.2); }
-  100% { transform: scale(1); }
-}
-.notification {
-  animation: slideIn 0.3s ease, pulse 0.5s ease 0.3s;
-}
-
-/* Частицы при клике (простая имитация) */
-.particle {
-  position: fixed;
-  pointer-events: none;
-  width: 6px;
-  height: 6px;
-  background: #3b82f6;
-  border-radius: 50%;
-  animation: particleFly 0.6s ease-out forwards;
-  z-index: 10000;
-}
-@keyframes particleFly {
-  0% { transform: translate(0,0) scale(1); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
-}
-
-/* Бейдж админа */
-.admin-badge {
-  background: #fbbf24;
-  color: #0f172a;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-  display: inline-block;
-  margin-top: 8px;
+/* Кнопка смены ника */
+#changeNickBtn {
+  margin-left: 10px;
 }
