@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>ProjectEvolution | Satoshi</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Экран входа / регистрации -->
+    <div id="loginScreen" class="screen">
+      <div class="login-container">
+        <h1>ProjectEvolution | Satoshi</h1>
+        <h2>Faceit‑подобная платформа</h2>
+        <div id="loginForm">
+          <input type="text" id="loginUsername" placeholder="Логин" autocomplete="off">
+          <input type="password" id="loginPassword" placeholder="Пароль">
+          <button id="doLoginBtn">Войти</button>
+          <p class="switch-link">Нет аккаунта? <a href="#" id="showRegisterLink">Зарегистрироваться</a></p>
+        </div>
+        <div id="registerForm" style="display: none;">
+          <input type="text" id="regUsername" placeholder="Логин">
+          <input type="password" id="regPassword" placeholder="Пароль">
+          <input type="password" id="regPasswordConfirm" placeholder="Подтвердите пароль">
+          <input type="text" id="regInGameNick" placeholder="Ник в Project Evolution">
+          <input type="text" id="regInGameId" placeholder="ID в Project Evolution">
+          <button id="doRegisterBtn">Зарегистрироваться</button>
+          <p class="switch-link">Уже есть аккаунт? <a href="#" id="showLoginLink">Войти</a></p>
+        </div>
+        <p class="info" id="authMessage"></p>
+      </div>
+    </div>
+
+    <!-- Главный экран -->
+    <div id="mainScreen" class="screen" style="display: none;">
+      <div class="sidebar">
+        <div class="profile-card">
+          <div class="profile-header">
+            <div class="avatar-container">
+              <img id="avatar" src="https://via.placeholder.com/80" alt="аватар">
+              <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+              <button id="changeAvatarBtn" class="avatar-upload-btn">📸</button>
+            </div>
+            <div class="profile-info">
+              <div class="streak-container" title="Стрик непрерывных игр">
+                <span id="streakCount">0</span>
+              </div>
+              <div class="nickname-container">
+                <h3 id="nickname">Игрок</h3>
+                <span class="info-icon" id="profileInfoIcon">ℹ️</span>
+                <div class="info-tooltip" id="profileTooltip" style="display: none;">
+                  <div><strong>ID на сайте:</strong> <span id="tooltipSiteId">—</span></div>
+                  <div><strong>Ник на сайте:</strong> <span id="tooltipSiteNick">—</span></div>
+                  <div><strong>ID в игре:</strong> <span id="tooltipGameId">—</span></div>
+                  <div><strong>Ник в игре:</strong> <span id="tooltipGameNick">—</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button id="logoutBtn">Выйти</button>
+        </div>
+        <nav>
+          <button class="nav-btn active" data-view="play">Играть</button>
+          <button class="nav-btn" data-view="profile">Профиль</button>
+          <button class="nav-btn" data-view="history">История</button>
+          <button class="nav-btn" data-view="friends">Друзья</button>
+          <button class="nav-btn" data-view="chat">Чат</button>
+          <button class="nav-btn" data-view="top">Топ</button>
+          <button class="nav-btn" data-view="clan">Клан</button>
+        </nav>
+      </div>
+
+      <div class="content">
+        <!-- Вкладка "Играть" (очередь) -->
+        <div id="playView" class="view active">
+          <h2>Выбор режима</h2>
+          <div id="partyStatus" style="margin-bottom: 10px;"></div>
+          <div id="partyMembers" style="margin-bottom: 15px; background: #1e293b; border-radius: 12px; padding: 10px; display: none;">
+            <h4>Участники пати:</h4>
+            <div id="partyMembersList"></div>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <button id="createPartyBtn">Создать пати</button>
+            <input type="text" id="joinPartyCode" placeholder="Код пати" style="width: 150px;">
+            <button id="joinPartyBtn">Присоединиться</button>
+          </div>
+          <div class="modes-container">
+            <div class="mode-card"><h3>1x1 Дуэль</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="1v1" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="1v1" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-1v1-unranked">0/2</span><span class="queue-status-text" id="queue-status-1v1-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="1v1" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-1v1-ranked">0/2</span><span class="queue-status-text" id="queue-status-1v1-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="1v1" data-ranked="true" style="display: none;">Выйти</button></div></div>
+            <div class="mode-card"><h3>2x2 Напарники</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="2v2" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="2v2" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-2v2-unranked">0/4</span><span class="queue-status-text" id="queue-status-2v2-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="2v2" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-2v2-ranked">0/4</span><span class="queue-status-text" id="queue-status-2v2-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="2v2" data-ranked="true" style="display: none;">Выйти</button></div></div>
+            <div class="mode-card"><h3>5x5 Соревновательный</h3><div class="mode-buttons"><button class="queue-mode-btn" data-mode="5v5" data-ranked="false">Обычный</button><button class="queue-mode-btn" data-mode="5v5" data-ranked="true">Ранговый</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-5v5-unranked">0/10</span><span class="queue-status-text" id="queue-status-5v5-unranked">Не в очереди</span><button class="leave-queue-btn" data-mode="5v5" data-ranked="false" style="display: none;">Выйти</button></div><div class="queue-stats"><span class="queue-count" id="queue-count-5v5-ranked">0/10</span><span class="queue-status-text" id="queue-status-5v5-ranked">Не в очереди</span><button class="leave-queue-btn" data-mode="5v5" data-ranked="true" style="display: none;">Выйти</button></div></div>
+          </div>
+          <div id="activeMatchInfo" style="display: none;"></div>
+        </div>
+
+        <!-- Вкладка профиля -->
+        <div id="profileView" class="view" style="display: none;">
+          <h2>Мой профиль</h2>
+          <div class="stats-grid" id="profileStats"></div>
+          <div style="margin-top: 20px;">
+            <h3>Смена ника в игре</h3>
+            <input type="text" id="newNickInput" placeholder="Новый ник">
+            <button id="changeNickBtn">Сменить ник</button>
+          </div>
+        </div>
+
+        <!-- Вкладка истории -->
+        <div id="historyView" class="view" style="display: none;">
+          <h2>История матчей</h2>
+          <ul id="matchList"></ul>
+        </div>
+
+        <!-- Вкладка друзей -->
+        <div id="friendsView" class="view" style="display: none;">
+          <h2>Друзья</h2>
+          <div class="friends-tabs">
+            <button class="friends-tab active" data-tab="friends">Мои друзья</button>
+            <button class="friends-tab" data-tab="requests">Заявки в друзья</button>
+          </div>
+          <div id="friendsList" class="friends-list"></div>
+          <div id="friendRequests" class="friends-list" style="display: none;"></div>
+        </div>
+
+        <!-- Вкладка чата -->
+        <div id="chatView" class="view" style="display: none;">
+          <h2>Глобальный чат</h2>
+          <div id="chatMessages" class="chat-messages"></div>
+          <div class="chat-input"><input type="text" id="chatInput" placeholder="Введите сообщение..."><button id="chatSendBtn">Отправить</button></div>
+          <div id="privateChatArea" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Вкладка Топ -->
+        <div id="topView" class="view" style="display: none;">
+          <!-- сюда будет вставлен топ -->
+        </div>
+
+        <!-- Вкладка Клан -->
+        <div id="clanView" class="view" style="display: none;">
+          <!-- сюда будет вставлена информация о клане -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/client.js"></script>
+  <script>
+    // Переключение вкладок внутри раздела "Друзья"
+    document.querySelectorAll('.friends-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        document.querySelectorAll('.friends-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (target === 'friends') {
+          document.getElementById('friendsList').style.display = 'block';
+          document.getElementById('friendRequests').style.display = 'none';
+        } else {
+          document.getElementById('friendsList').style.display = 'none';
+          document.getElementById('friendRequests').style.display = 'block';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
