@@ -18,15 +18,16 @@
             --text-dim: #666;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        *:focus { outline: none !important; }
+        button:focus, input:focus, select:focus { outline: none !important; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg); color: var(--text); min-height: 100vh;
             max-width: 500px; margin: 0 auto; padding: 16px;
             -webkit-tap-highlight-color: transparent;
+            -webkit-focus-ring-color: transparent;
             overflow-x: hidden;
         }
-
-        /* === АНИМАЦИИ === */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -35,32 +36,30 @@
         @keyframes glowText { 0%, 100% { text-shadow: 0 0 15px var(--red), 0 0 30px #cc0000; } 50% { text-shadow: 0 0 25px var(--red), 0 0 60px #ff3333; } }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.95); } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-
         .screen { display: none; animation: fadeIn 0.3s ease; }
         .screen.active { display: block; }
         .card { background: var(--card); padding: 13px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
         .card:active { border-color: var(--red); transition: border-color 0.2s; }
-
         h1 { text-align: center; color: var(--red); margin-bottom: 20px; font-size: 28px; letter-spacing: 2px; animation: glowText 2s ease-in-out infinite; }
         h2 { color: var(--red); margin-bottom: 12px; font-size: 19px; text-shadow: 0 0 8px var(--red); animation: slideDown 0.4s ease; }
         h3 { color: #888; margin-bottom: 10px; font-size: 15px; }
-
         input, button, select {
             width: 100%; padding: 13px; margin-bottom: 10px;
-            border-radius: 6px; border: none; font-size: 15px;
-            transition: all 0.3s ease;
+            border-radius: 6px; border: 1px solid var(--border); font-size: 15px;
+            transition: all 0.3s ease; -webkit-appearance: none;
         }
-        input, select { background: var(--input); color: #ccc; border: 1px solid var(--border); }
-        input:focus, select:focus { outline: none; border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4); animation: pulse 1.5s infinite; }
-
+        input, select { background: var(--input); color: #ccc; }
+        input:focus { border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; animation: pulse 1.5s infinite; }
         button {
             background: #cc0000; color: white; font-weight: bold; cursor: pointer;
             box-shadow: 0 0 10px rgba(255,0,0,0.4), 0 0 20px rgba(255,0,0,0.2);
             text-transform: uppercase; letter-spacing: 1px;
             animation: fadeInScale 0.3s ease;
             position: relative; overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            outline: none !important;
+            border: none !important;
         }
         button:active { background: var(--red-dark); box-shadow: 0 0 25px rgba(255,0,0,0.7); transform: scale(0.96); }
         button::after {
@@ -69,20 +68,15 @@
             transform: rotate(45deg); transition: 0.4s; opacity: 0;
         }
         button:active::after { opacity: 1; left: 100%; }
-
         .btn-secondary { background: var(--input); border: 1px solid var(--border); box-shadow: 0 0 8px rgba(255,0,0,0.2); }
         .btn-gold { background: #996600; box-shadow: 0 0 15px rgba(255,170,0,0.5); animation: pulse 2s infinite; }
         .btn-danger { background: #1a0000; border: 1px solid #330000; box-shadow: 0 0 8px rgba(255,0,0,0.3); }
-
         .msg { text-align: center; margin-bottom: 8px; font-size: 13px; animation: fadeIn 0.3s ease; }
         .error { color: var(--red); text-shadow: 0 0 8px rgba(255,0,0,0.5); }
         .success { color: #00cc00; text-shadow: 0 0 8px rgba(0,255,0,0.5); }
-
         .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
         .top-bar button { width: auto; padding: 7px 14px; font-size: 13px; background: var(--input); border: 1px solid var(--border); box-shadow: 0 0 8px rgba(255,0,0,0.15); }
         .top-bar .logo-text { color: var(--red); font-weight: bold; text-shadow: 0 0 10px var(--red); animation: glowText 2s ease-in-out infinite; font-size: 16px; }
-
-        /* Табы */
         .tab-bar { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
         .tab-bar button {
             flex: 1; min-width: 55px; padding: 9px 6px; font-size: 10px;
@@ -90,24 +84,15 @@
             animation: slideUp 0.3s ease; white-space: nowrap;
         }
         .tab-bar button.active { background: #cc0000; border-color: #cc0000; box-shadow: 0 0 12px rgba(255,0,0,0.5); animation: pulse 1.5s infinite; }
-
-        #chat-box, #lobby-chat {
-            background: var(--card); border-radius: 6px; padding: 10px;
-            height: 200px; overflow-y: auto; margin-bottom: 8px;
-            font-size: 13px; border: 1px solid var(--border);
-        }
+        #chat-box { background: var(--card); border-radius: 6px; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 8px; font-size: 13px; border: 1px solid var(--border); }
         .chat-msg { margin-bottom: 5px; word-break: break-word; animation: fadeIn 0.2s ease; }
         .chat-msg .user { color: var(--red); font-weight: bold; }
         .chat-msg .time { color: #333; font-size: 10px; margin-left: 4px; }
-
         .queue-info { background: var(--card); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
         label { font-size: 12px; color: var(--text-dim); display: block; margin-bottom: 3px; }
         .divider { border-top: 1px solid var(--border); margin: 16px 0; }
-
         .logo { font-size: 40px; text-align: center; margin-bottom: 4px; animation: float 3s ease-in-out infinite; }
         .logo span { display: inline-block; animation: bounceIn 0.6s ease; }
-
-        /* Модальное окно */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
         .modal {
@@ -117,8 +102,6 @@
         }
         .modal h3 { color: var(--red); text-align: center; margin-bottom: 16px; }
         .modal button { margin-bottom: 8px; }
-
-        /* Уровни */
         .level-badge {
             display: inline-block; padding: 4px 10px; border-radius: 12px;
             font-size: 12px; font-weight: bold; margin-left: 6px;
@@ -133,19 +116,10 @@
         .level-8 { background: #3a1a1a; color: #f44336; }
         .level-9 { background: #1a1a3a; color: #448aff; }
         .level-10 { background: linear-gradient(135deg, #ff0000, #ffaa00); color: #fff; animation: pulse 1s infinite; }
-
-        /* Скелетон */
-        .skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
-
-        /* Рейтинг */
         .rank-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card); border-radius: 6px; margin-bottom: 4px; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
         .rank-row:nth-child(1) .rank-pos { color: #ffd700; text-shadow: 0 0 10px #ffd700; font-size: 20px; }
         .rank-row:nth-child(2) .rank-pos { color: #c0c0c0; text-shadow: 0 0 8px #c0c0c0; }
         .rank-row:nth-child(3) .rank-pos { color: #cd7f32; text-shadow: 0 0 6px #cd7f32; }
-
-        @media (max-width: 360px) {
-            .tab-bar button { font-size: 9px; padding: 7px 4px; }
-        }
     </style>
 </head>
 <body>
@@ -189,7 +163,6 @@
         <button data-tab="mvp">🏆 ТОП</button>
     </div>
 
-    <!-- ПОИСК -->
     <div class="tab-content" id="tab-content-queue">
         <div class="card">
             <label>РЕЖИМ</label>
@@ -202,7 +175,6 @@
         <div id="queue-list">Загрузка...</div>
     </div>
 
-    <!-- ЧАТ -->
     <div class="tab-content" id="tab-content-chat" style="display:none;">
         <div id="chat-box"></div>
         <div style="display:flex; gap:8px;">
@@ -211,22 +183,18 @@
         </div>
     </div>
 
-    <!-- ПРОФИЛЬ -->
     <div class="tab-content" id="tab-content-profile" style="display:none;">
-        <div class="card"><h3>МОЯ СТАТИСТИКА</h3><div id="profile-stats"><div class="skeleton" style="height:150px;"></div></div></div>
+        <div class="card"><h3>МОЯ СТАТИСТИКА</h3><div id="profile-stats"><div style="height:150px;"></div></div></div>
     </div>
 
-    <!-- ДРУЗЬЯ -->
     <div class="tab-content" id="tab-content-friends" style="display:none;">
         <div class="card"><h3>ДРУЗЬЯ</h3><div id="friends-list">Загрузка...</div></div>
     </div>
 
-    <!-- КЛАН -->
     <div class="tab-content" id="tab-content-clan" style="display:none;">
         <div class="card"><h3>КЛАН</h3><div id="clan-info">Загрузка...</div></div>
     </div>
 
-    <!-- ТОП -->
     <div class="tab-content" id="tab-content-mvp" style="display:none;">
         <div class="card"><h3>🏆 ТОП ИГРОКОВ</h3>
             <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -239,7 +207,7 @@
     </div>
 </div>
 
-<!-- МАТЧ НАЙДЕН -->
+<!-- МАТЧ -->
 <div id="screen-match" class="screen">
     <h2>⚔️ МАТЧ НАЙДЕН!</h2>
     <div class="card">
@@ -250,7 +218,7 @@
     <button id="btn-decline-match" class="btn-danger">❌ ОТКЛОНИТЬ</button>
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО ВЫБОРА РЕЖИМА -->
+<!-- МОДАЛКА РЕЖИМА -->
 <div class="modal-overlay" id="modal-mode">
     <div class="modal">
         <h3>ВЫБОР РЕЖИМА</h3>
@@ -265,6 +233,9 @@
 
 <script>
 (function() {
+    'use strict';
+
+    // СОСТОЯНИЕ
     var myUserId = localStorage.getItem('satoshi_userId') || '';
     var myUserData = null;
     var socket = null;
@@ -279,9 +250,56 @@
     var friendsList = [];
     var pendingRequests = [];
 
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (объявлены первыми)
+    function esc(t) {
+        if (!t) return '';
+        var d = document.createElement('div');
+        d.textContent = String(t);
+        return d.innerHTML;
+    }
+
+    function getLevel(mmr) {
+        if (mmr >= 2001) return { num: 10, name: 'Бог' };
+        if (mmr >= 1751) return { num: 9, name: 'Легенда' };
+        if (mmr >= 1531) return { num: 8, name: 'Элита' };
+        if (mmr >= 1351) return { num: 7, name: 'Мастер' };
+        if (mmr >= 1201) return { num: 6, name: 'Бриллиант' };
+        if (mmr >= 1051) return { num: 5, name: 'Платина' };
+        if (mmr >= 901) return { num: 4, name: 'Золото' };
+        if (mmr >= 751) return { num: 3, name: 'Серебро' };
+        if (mmr >= 501) return { num: 2, name: 'Бронза' };
+        return { num: 1, name: 'Новичок' };
+    }
+
+    function getRankIcon(lvl) {
+        var icons = { 1: '🔰', 2: '🥉', 3: '🥈', 4: '🥇', 5: '💠', 6: '💎', 7: '👑', 8: '🔮', 9: '🌟', 10: '🔥' };
+        return icons[lvl] || '❓';
+    }
+
+    function showAuthMsg(msg, cls) {
+        var el = document.getElementById('auth-msg');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'msg ' + (cls || '');
+    }
+
+    function setQueueStatus(h) {
+        var el = document.getElementById('queue-status');
+        if (el) el.innerHTML = h;
+    }
+
+    function resetQueueUI() {
+        document.getElementById('btn-join-queue').style.display = 'block';
+        document.getElementById('btn-leave-queue').style.display = 'none';
+        inQueue = false;
+    }
+
+    // ЭКРАНЫ
     function showScreen(id) {
         var screens = document.getElementsByClassName('screen');
-        for (var i = 0; i < screens.length; i++) { screens[i].classList.remove('active'); }
+        for (var i = 0; i < screens.length; i++) {
+            screens[i].classList.remove('active');
+        }
         var el = document.getElementById(id);
         if (el) el.classList.add('active');
     }
@@ -289,11 +307,15 @@
     function switchTab(tab) {
         currentTab = tab;
         var btns = document.querySelectorAll('#tab-bar button');
-        for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.remove('active');
+        }
         var activeBtn = document.querySelector('#tab-bar button[data-tab="' + tab + '"]');
         if (activeBtn) activeBtn.classList.add('active');
         var contents = document.getElementsByClassName('tab-content');
-        for (var j = 0; j < contents.length; j++) { contents[j].style.display = 'none'; }
+        for (var j = 0; j < contents.length; j++) {
+            contents[j].style.display = 'none';
+        }
         var content = document.getElementById('tab-content-' + tab);
         if (content) content.style.display = 'block';
 
@@ -303,15 +325,29 @@
         if (tab === 'mvp') loadMVP(topPeriod);
     }
 
-    // МОДАЛЬНОЕ ОКНО
+    function showRegister() {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+        showAuthMsg('', '');
+    }
+
+    function showLogin() {
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+        showAuthMsg('', '');
+    }
+
+    // МОДАЛКА
     function openModeModal() {
         document.getElementById('modal-queue-mode').value = queueMode;
         document.getElementById('modal-queue-type').value = queueType;
         document.getElementById('modal-mode').classList.add('active');
     }
+
     function closeModeModal() {
         document.getElementById('modal-mode').classList.remove('active');
     }
+
     function applyMode() {
         queueMode = document.getElementById('modal-queue-mode').value;
         queueType = document.getElementById('modal-queue-type').value;
@@ -321,26 +357,27 @@
         closeModeModal();
     }
 
-    function showRegister() {
-        document.getElementById('login-form').style.display = 'none';
-        document.getElementById('register-form').style.display = 'block';
-        var m = document.getElementById('auth-msg'); if (m) { m.textContent = ''; m.className = 'msg'; }
-    }
-    function showLogin() {
-        document.getElementById('register-form').style.display = 'none';
-        document.getElementById('login-form').style.display = 'block';
-        var m = document.getElementById('auth-msg'); if (m) { m.textContent = ''; m.className = 'msg'; }
-    }
-
+    // АВТОРИЗАЦИЯ
     function login() {
         var u = document.getElementById('login-username').value.trim();
         var p = document.getElementById('login-password').value.trim();
         if (!u || !p) { showAuthMsg('Заполни все поля', 'error'); return; }
-        fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) })
-        .then(function(r) { return r.json(); }).then(function(d) {
-            if (d.success) { myUserId = d.userData.id; myUserData = d.userData; localStorage.setItem('satoshi_userId', myUserId); enterApp(); }
-            else { showAuthMsg(d.message || 'Неверный логин или пароль', 'error'); }
-        }).catch(function() { showAuthMsg('Сервер недоступен', 'error'); });
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) {
+                myUserId = d.userData.id;
+                myUserData = d.userData;
+                localStorage.setItem('satoshi_userId', myUserId);
+                enterApp();
+            } else {
+                showAuthMsg(d.message || 'Неверный логин или пароль', 'error');
+            }
+        }).catch(function() {
+            showAuthMsg('Сервер недоступен', 'error');
+        });
     }
 
     function register() {
@@ -349,31 +386,8 @@
         var n = document.getElementById('reg-nick').value.trim();
         var g = document.getElementById('reg-gameid').value.trim();
         if (!u || !p || !n || !g) { showAuthMsg('Все поля обязательны', 'error'); return; }
-        fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, inGameNick: n, inGameId: g }) })
-        .then(function(r) { return r.json(); }).then(function(d) {
-            if (d.success) { showAuthMsg('Аккаунт создан! ID: ' + d.userId, 'success'); document.getElementById('login-username').value = u; document.getElementById('login-password').value = p; setTimeout(showLogin, 1500); }
-            else { showAuthMsg(d.message || 'Ошибка регистрации', 'error'); }
-        }).catch(function() { showAuthMsg('Сервер недоступен', 'error'); });
-    }
-
-    function showAuthMsg(msg, cls) {
-        var el = document.getElementById('auth-msg'); if (!el) return;
-        el.textContent = msg; el.className = 'msg ' + cls;
-    }
-
-    function logout() { if (socket) socket.disconnect(); localStorage.clear(); myUserId = ''; myUserData = null; showScreen('screen-auth'); }
-
-    function enterApp() {
-        showScreen('screen-main');
-        var nick = document.getElementById('user-nick');
-        if (nick) nick.textContent = myUserData ? myUserData.inGameNick : myUserId;
-        connectSocket(); switchTab('queue');
-    }
-
-    function connectSocket() {
-        if (socket) socket.disconnect();
-        socket = io();
-        socket.on('connect', function() { socket.emit('auth', myUserId); });
-        socket.on('queueUpdate', function(q) { displayQueues(q); });
-        socket.on('chatHistory', function(msgs) {
-           
+        fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p, inGameNick: n, inGameId: g })
+        }).then(function(r) { return r.json(); }).then(func
