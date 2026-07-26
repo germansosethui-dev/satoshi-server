@@ -3,81 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Standoff 2 | Matchmaking</title>
+    <title>Satoshi</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0d0d1a; color: #eee; min-height: 100vh;
+            background: #0a0a0a; color: #ccc; min-height: 100vh;
             max-width: 500px; margin: 0 auto; padding: 16px;
             -webkit-tap-highlight-color: transparent;
         }
         .screen { display: none; }
         .screen.active { display: block; }
-        h1 { text-align: center; color: #ff5722; margin-bottom: 20px; font-size: 26px; }
-        h2 { color: #ff5722; margin-bottom: 12px; font-size: 19px; }
-        h3 { color: #ccc; margin-bottom: 8px; font-size: 15px; }
+        h1 { text-align: center; color: #e53935; margin-bottom: 20px; font-size: 28px; letter-spacing: 2px; }
+        h2 { color: #e53935; margin-bottom: 12px; font-size: 19px; }
+        h3 { color: #999; margin-bottom: 10px; font-size: 15px; }
         input, button, select {
             width: 100%; padding: 13px; margin-bottom: 10px;
-            border-radius: 8px; border: none; font-size: 15px;
+            border-radius: 6px; border: none; font-size: 15px;
         }
-        input, select { background: #1a1a2e; color: #eee; border: 1px solid #2a2a4a; }
-        button { background: #ff5722; color: white; font-weight: bold; cursor: pointer; }
-        button:active { background: #e04e1c; }
-        .btn-secondary { background: #2a2a4a; }
-        .btn-danger { background: #c0392b; }
+        input, select { background: #141414; color: #ccc; border: 1px solid #2a2a2a; }
+        input:focus, select:focus { outline: none; border-color: #e53935; }
+        button { background: #c62828; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:active { background: #8e0000; }
+        .btn-secondary { background: #1a1a1a; border: 1px solid #333; }
+        .btn-danger { background: #4a0000; }
         .card {
-            background: #1a1a2e; padding: 13px; border-radius: 8px;
-            margin-bottom: 8px; border: 1px solid #2a2a4a;
+            background: #111; padding: 13px; border-radius: 6px;
+            margin-bottom: 8px; border: 1px solid #222;
         }
         .msg { text-align: center; margin-bottom: 8px; font-size: 13px; }
-        .error { color: #ff5722; }
+        .error { color: #e53935; }
         .success { color: #4caf50; }
         .top-bar {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+            padding-bottom: 10px; border-bottom: 1px solid #222;
         }
-        .top-bar button { width: auto; padding: 7px 14px; font-size: 13px; background: #2a2a4a; }
+        .top-bar button { width: auto; padding: 7px 14px; font-size: 13px; background: #1a1a1a; border: 1px solid #333; }
         .tab-bar { display: flex; gap: 6px; margin-bottom: 14px; }
-        .tab-bar button { flex: 1; padding: 9px; font-size: 12px; background: #2a2a4a; }
-        .tab-bar button.active { background: #ff5722; }
+        .tab-bar button { flex: 1; padding: 9px; font-size: 12px; background: #111; border: 1px solid #222; }
+        .tab-bar button.active { background: #c62828; border-color: #c62828; }
         #chat-box, #lobby-chat {
-            background: #1a1a2e; border-radius: 8px; padding: 10px;
+            background: #111; border-radius: 6px; padding: 10px;
             height: 220px; overflow-y: auto; margin-bottom: 8px;
-            font-size: 13px; border: 1px solid #2a2a4a;
+            font-size: 13px; border: 1px solid #222;
         }
         .chat-msg { margin-bottom: 5px; word-break: break-word; }
-        .chat-msg .user { color: #ff5722; font-weight: bold; }
-        .chat-msg .time { color: #555; font-size: 10px; margin-left: 4px; }
+        .chat-msg .user { color: #e53935; font-weight: bold; }
+        .chat-msg .time { color: #444; font-size: 10px; margin-left: 4px; }
         .queue-info {
-            background: #1a1a2e; padding: 8px 12px; border-radius: 8px;
-            margin-bottom: 8px; font-size: 12px; border: 1px solid #2a2a4a;
+            background: #111; padding: 8px 12px; border-radius: 6px;
+            margin-bottom: 6px; font-size: 12px; border: 1px solid #222;
         }
         .badge {
-            background: #ff5722; color: white; border-radius: 10px;
+            background: #c62828; color: white; border-radius: 10px;
             padding: 1px 6px; font-size: 10px; margin-left: 3px;
         }
-        .player-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 0; border-bottom: 1px solid #2a2a4a;
-        }
-        .row { display: flex; gap: 8px; }
-        .row input, .row select { flex: 1; }
-        label { font-size: 12px; color: #aaa; display: block; margin-bottom: 3px; }
+        label { font-size: 12px; color: #777; display: block; margin-bottom: 3px; }
+        .divider { border-top: 1px solid #222; margin: 16px 0; }
+        .logo { font-size: 32px; text-align: center; margin-bottom: 4px; }
     </style>
 </head>
 <body>
 
 <!-- ЭКРАН АВТОРИЗАЦИИ -->
 <div id="screen-auth" class="screen active">
-    <h1>🔫 STANDOFF 2</h1>
+    <div class="logo">🎯</div>
+    <h1>SATOSHI</h1>
     <div id="auth-msg" class="msg"></div>
 
     <!-- Вход -->
     <div id="login-form">
         <h3>Вход</h3>
-        <input type="text" id="login-username" placeholder="Логин">
-        <input type="password" id="login-password" placeholder="Пароль">
+        <input type="text" id="login-username" placeholder="Логин" autocomplete="username">
+        <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
         <button onclick="login()">Войти</button>
         <button class="btn-secondary" onclick="showRegister()">Создать аккаунт</button>
     </div>
@@ -97,8 +96,8 @@
 <!-- ГЛАВНЫЙ ЭКРАН -->
 <div id="screen-main" class="screen">
     <div class="top-bar">
-        <span style="color:#ff5722; font-weight:bold;">🔫 STANDOFF 2</span>
-        <span id="user-nick" style="font-size:13px;"></span>
+        <span style="color:#e53935; font-weight:bold;">🎯 SATOSHI</span>
+        <span id="user-nick" style="font-size:13px; color:#888;"></span>
         <button onclick="logout()">Выйти</button>
     </div>
 
@@ -133,8 +132,8 @@
     <!-- Вкладка Чат -->
     <div id="tab-content-chat" style="display:none;">
         <div id="chat-box"></div>
-        <div class="row">
-            <input type="text" id="chat-input" placeholder="Сообщение...">
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="chat-input" placeholder="Сообщение..." style="flex:1;">
             <button onclick="sendChat()" style="width:auto; padding:13px 18px;">➤</button>
         </div>
     </div>
@@ -152,8 +151,8 @@
 <div id="screen-match" class="screen">
     <h2>⚔️ Матч найден!</h2>
     <div class="card">
-        <p id="match-info"></p>
-        <p id="match-timer" style="color:#ff5722; font-size:20px; text-align:center;"></p>
+        <p id="match-info" style="margin-bottom:8px;"></p>
+        <p id="match-timer" style="color:#e53935; font-size:22px; text-align:center;"></p>
     </div>
     <button onclick="acceptMatch()">✅ Принять</button>
     <button class="btn-danger" onclick="declineMatch()">❌ Отклонить</button>
@@ -161,7 +160,7 @@
 
 <script>
 // ================= СОСТОЯНИЕ =================
-let myUserId = localStorage.getItem('s2_userId') || '';
+let myUserId = localStorage.getItem('satoshi_userId') || '';
 let myUserData = null;
 let socket = null;
 let currentTab = 'queue';
@@ -190,12 +189,14 @@ function showRegister() {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('register-form').style.display = 'block';
     document.getElementById('auth-msg').textContent = '';
+    document.getElementById('auth-msg').className = 'msg';
 }
 
 function showLogin() {
     document.getElementById('register-form').style.display = 'none';
     document.getElementById('login-form').style.display = 'block';
     document.getElementById('auth-msg').textContent = '';
+    document.getElementById('auth-msg').className = 'msg';
 }
 
 // ================= АВТОРИЗАЦИЯ =================
@@ -211,10 +212,11 @@ async function login() {
             body: JSON.stringify({ username, password })
         });
         const data = await res.json();
+        console.log('LOGIN RESPONSE:', data);
         if (data.success) {
             myUserId = data.userData.id;
             myUserData = data.userData;
-            localStorage.setItem('s2_userId', myUserId);
+            localStorage.setItem('satoshi_userId', myUserId);
             enterApp();
         } else {
             showAuthMsg(data.message || 'Неверный логин или пароль', 'error');
@@ -241,10 +243,15 @@ async function register() {
             body: JSON.stringify({ username, password, inGameNick, inGameId })
         });
         const data = await res.json();
+        console.log('REGISTER RESPONSE:', data);
         if (data.success) {
-            showAuthMsg('Аккаунт создан! ID: ' + data.userId + '. Теперь войди.', 'success');
-            showLogin();
+            showAuthMsg('Аккаунт создан! ID: ' + data.userId, 'success');
+            // Авто-заполняем логин и переключаем на вход
             document.getElementById('login-username').value = username;
+            document.getElementById('login-password').value = password;
+            setTimeout(() => {
+                showLogin();
+            }, 1000);
         } else {
             showAuthMsg(data.message || 'Ошибка регистрации', 'error');
         }
@@ -265,6 +272,8 @@ function logout() {
     myUserId = '';
     myUserData = null;
     showScreen('screen-auth');
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
 }
 
 // ================= ВХОД В ПРИЛОЖЕНИЕ =================
@@ -281,8 +290,8 @@ function connectSocket() {
     socket = io();
 
     socket.on('connect', () => {
+        console.log('Socket connected, sending auth with userId:', myUserId);
         socket.emit('auth', myUserId);
-        loadQueueState();
     });
 
     socket.on('queueUpdate', (queues) => {
@@ -292,7 +301,9 @@ function connectSocket() {
     socket.on('chatHistory', (messages) => {
         const box = document.getElementById('chat-box');
         box.innerHTML = '';
-        messages.forEach(m => addChatMsg(m.user || m.from, m.text || m.message, m.date));
+        if (messages && messages.length) {
+            messages.forEach(m => addChatMsg(m.user || m.from, m.text || m.message, m.date));
+        }
     });
 
     socket.on('chatMessage', (msg) => {
@@ -300,26 +311,31 @@ function connectSocket() {
     });
 
     socket.on('matchFound', (data) => {
+        console.log('Match found:', data);
         currentMatch = data;
-        matchTimerCount = Math.floor(data.timeout / 1000);
+        matchTimerCount = Math.floor((data.timeout || 15000) / 1000);
         document.getElementById('match-info').innerHTML = `
-            Режим: ${data.mode} ${data.ranked ? '(Рейтинг)' : '(Обычный)'}<br>
-            Карта: ${data.map}<br>
-            Игроки: ${data.participants.length}
+            <b>Режим:</b> ${data.mode} ${data.ranked ? '(Рейтинг)' : '(Обычный)'}<br>
+            <b>Карта:</b> ${data.map}<br>
+            <b>Игроков:</b> ${data.participants.length}
         `;
         showScreen('screen-match');
         startMatchTimer();
     });
 
-    socket.on('matchCancelled', () => {
+    socket.on('matchCancelled', (data) => {
+        console.log('Match cancelled:', data);
         currentMatch = null;
         clearInterval(matchTimer);
         showScreen('screen-main');
         document.getElementById('queue-status').innerHTML = '<span class="error">Матч отменён</span>';
+        document.getElementById('btn-join-queue').style.display = 'block';
+        document.getElementById('btn-leave-queue').style.display = 'none';
+        inQueue = false;
     });
 
     socket.on('queueError', (data) => {
-        document.getElementById('queue-status').innerHTML = '<span class="error">' + data.message + '</span>';
+        document.getElementById('queue-status').innerHTML = '<span class="error">' + (data.message || 'Ошибка') + '</span>';
     });
 
     socket.on('banned', (data) => {
@@ -341,7 +357,7 @@ function joinQueue() {
     inQueue = true;
     document.getElementById('btn-join-queue').style.display = 'none';
     document.getElementById('btn-leave-queue').style.display = 'block';
-    document.getElementById('queue-status').innerHTML = '<span style="color:#ff5722;">🔍 Поиск игры...</span>';
+    document.getElementById('queue-status').innerHTML = '<span style="color:#e53935;">🔍 Поиск игры...</span>';
 }
 
 function leaveQueue() {
@@ -358,6 +374,9 @@ function acceptMatch() {
     clearInterval(matchTimer);
     showScreen('screen-main');
     document.getElementById('queue-status').innerHTML = '<span class="success">Матч принят! Заходи в Standoff 2</span>';
+    document.getElementById('btn-join-queue').style.display = 'block';
+    document.getElementById('btn-leave-queue').style.display = 'none';
+    inQueue = false;
     currentMatch = null;
 }
 
@@ -366,45 +385,39 @@ function declineMatch() {
     socket.emit('declineMatch', { matchId: currentMatch.id });
     clearInterval(matchTimer);
     showScreen('screen-main');
+    document.getElementById('btn-join-queue').style.display = 'block';
+    document.getElementById('btn-leave-queue').style.display = 'none';
+    inQueue = false;
     currentMatch = null;
 }
 
 function startMatchTimer() {
     clearInterval(matchTimer);
     const timerEl = document.getElementById('match-timer');
-    timerEl.textContent = matchTimerCount;
+    timerEl.textContent = matchTimerCount + ' сек';
     matchTimer = setInterval(() => {
         matchTimerCount--;
-        timerEl.textContent = matchTimerCount;
+        timerEl.textContent = matchTimerCount + ' сек';
         if (matchTimerCount <= 0) {
             clearInterval(matchTimer);
             showScreen('screen-main');
+            document.getElementById('btn-join-queue').style.display = 'block';
+            document.getElementById('btn-leave-queue').style.display = 'none';
+            inQueue = false;
             currentMatch = null;
         }
     }, 1000);
-}
-
-function loadQueueState() {
-    fetch('/api/user/' + myUserId)
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                myUserData = d.userData;
-                document.getElementById('user-nick').textContent = myUserData.inGameNick || myUserId;
-                updateProfileStats();
-            }
-        });
 }
 
 function displayQueues(queues) {
     const container = document.getElementById('queue-list');
     let html = '';
     for (const [key, q] of Object.entries(queues)) {
-        if (q.length === 0) continue;
-        const label = key.replace('_', ' → ');
+        if (!q || q.length === 0) continue;
+        const label = key.replace(/_/g, ' → ');
         html += `<div class="queue-info"><b>${label}:</b> ${q.length} игроков</div>`;
     }
-    if (!html) html = '<p style="color:#666; text-align:center;">Очереди пусты</p>';
+    if (!html) html = '<p style="color:#555; text-align:center;">Очереди пусты</p>';
     container.innerHTML = html;
 }
 
@@ -412,37 +425,68 @@ function displayQueues(queues) {
 function sendChat() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
-    if (!text) return;
-    if (socket) socket.emit('chatMessage', { text });
+    if (!text || !socket) return;
+    socket.emit('chatMessage', { text });
     input.value = '';
 }
 
 function addChatMsg(user, text, date) {
     const box = document.getElementById('chat-box');
     const time = date ? new Date(date).toLocaleTimeString().slice(0,5) : new Date().toLocaleTimeString().slice(0,5);
-    const displayUser = user === myUserId ? (myUserData?.username || 'Я') : (user || 'Аноним');
+    const displayUser = (user === myUserId || user === myUserData?.username) ? 'Я' : (user || 'Аноним');
     box.innerHTML += `<div class="chat-msg"><span class="user">${esc(displayUser)}</span><span class="time">${time}</span><br>${esc(text)}</div>`;
     box.scrollTop = box.scrollHeight;
 }
 
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && currentTab === 'chat') {
+    if (e.key === 'Enter' && currentTab === 'chat' && document.activeElement === document.getElementById('chat-input')) {
         sendChat();
     }
 });
 
 // ================= ПРОФИЛЬ =================
 function updateProfileStats() {
+    if (!myUserData) {
+        fetch('/api/user/' + myUserId)
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    myUserData = d.userData;
+                    renderStats();
+                }
+            });
+    } else {
+        renderStats();
+    }
+}
+
+function renderStats() {
     if (!myUserData) return;
     const s = myUserData.stats;
     document.getElementById('profile-stats').innerHTML = `
         <p><b>Ник:</b> ${esc(myUserData.inGameNick)}</p>
-        <p><b>ID:</b> ${esc(myUserData.inGameId)}</p>
-        <p><b>MMR 1v1:</b> ${s.mmr_1v1} | Побед: ${s.wins_1v1}</p>
-        <p><b>MMR 2v2:</b> ${s.mmr_2v2} | Побед: ${s.wins_2v2}</p>
-        <p><b>MMR 5v5:</b> ${s.mmr_5v5} | Побед: ${s.wins_5v5}</p>
+        <p><b>ID в игре:</b> ${esc(myUserData.inGameId)}</p>
+        <p><b>Уровень:</b> ${getLevel(s.mmr_1v1)}</p>
+        <div class="divider"></div>
+        <p><b>1v1:</b> MMR ${s.mmr_1v1} | Побед: ${s.wins_1v1} | Поражений: ${s.losses_1v1}</p>
+        <p><b>2v2:</b> MMR ${s.mmr_2v2} | Побед: ${s.wins_2v2} | Поражений: ${s.losses_2v2}</p>
+        <p><b>5v5:</b> MMR ${s.mmr_5v5} | Побед: ${s.wins_5v5} | Поражений: ${s.losses_5v5}</p>
+        <div class="divider"></div>
         <p><b>Всего рейтинговых побед:</b> ${s.totalRankedWins}</p>
     `;
+}
+
+function getLevel(mmr) {
+    if (mmr >= 2001) return '10 (Бог)';
+    if (mmr >= 1751) return '9';
+    if (mmr >= 1531) return '8';
+    if (mmr >= 1351) return '7';
+    if (mmr >= 1201) return '6';
+    if (mmr >= 1051) return '5';
+    if (mmr >= 901) return '4';
+    if (mmr >= 751) return '3';
+    if (mmr >= 501) return '2';
+    return '1';
 }
 
 // ================= УТИЛИТЫ =================
@@ -461,10 +505,16 @@ if (myUserId) {
             if (d.success) {
                 myUserData = d.userData;
                 enterApp();
+            } else {
+                localStorage.clear();
+                myUserId = '';
             }
         })
         .catch(() => {});
 }
-</script>
-</body>
-</html>
+
+// Подгрузка профиля при переключении на вкладку
+const origSwitchTab = switchTab;
+switchTab = function(tab) {
+    origSwitchTab(tab);
+    if (tab === 'profile') update
