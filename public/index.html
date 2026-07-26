@@ -6,20 +6,9 @@
     <title>Satoshi</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root {
-            --bg: #000000;
-            --card: #050505;
-            --input: #0a0a0a;
-            --border: #1a1a1a;
-            --red: #ff0000;
-            --red-dark: #990000;
-            --gold: #ffaa00;
-            --text: #b0b0b0;
-            --text-dim: #666;
-        }
+        :root { --bg: #000000; --card: #050505; --input: #0a0a0a; --border: #1a1a1a; --red: #ff0000; --red-dark: #990000; --gold: #ffaa00; --text: #b0b0b0; --text-dim: #666; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        *:focus { outline: none !important; }
-        button:focus, input:focus, select:focus { outline: none !important; }
+        *:focus, *:focus-visible, html:focus, body:focus { outline: none !important; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg); color: var(--text); min-height: 100vh;
@@ -34,39 +23,27 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { box-shadow: 0 0 10px var(--red), 0 0 20px rgba(255,0,0,0.3); } 50% { box-shadow: 0 0 25px var(--red), 0 0 50px rgba(255,0,0,0.5); } }
         @keyframes glowText { 0%, 100% { text-shadow: 0 0 15px var(--red), 0 0 30px #cc0000; } 50% { text-shadow: 0 0 25px var(--red), 0 0 60px #ff3333; } }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes bounceIn { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.95); } 100% { transform: scale(1); opacity: 1; } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .screen { display: none; animation: fadeIn 0.3s ease; }
         .screen.active { display: block; }
         .card { background: var(--card); padding: 13px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
-        .card:active { border-color: var(--red); transition: border-color 0.2s; }
+        .card:active { border-color: var(--red); }
         h1 { text-align: center; color: var(--red); margin-bottom: 20px; font-size: 28px; letter-spacing: 2px; animation: glowText 2s ease-in-out infinite; }
         h2 { color: var(--red); margin-bottom: 12px; font-size: 19px; text-shadow: 0 0 8px var(--red); animation: slideDown 0.4s ease; }
         h3 { color: #888; margin-bottom: 10px; font-size: 15px; }
-        input, button, select {
-            width: 100%; padding: 13px; margin-bottom: 10px;
-            border-radius: 6px; border: 1px solid var(--border); font-size: 15px;
-            transition: all 0.3s ease; -webkit-appearance: none;
-        }
-        input, select { background: var(--input); color: #ccc; }
-        input:focus { border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; }
+        input, button, select { width: 100%; padding: 13px; margin-bottom: 10px; border-radius: 6px; font-size: 15px; transition: all 0.3s ease; }
+        input, select { background: var(--input); color: #ccc; border: 1px solid var(--border); }
+        input:focus { border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4); }
         button {
             background: #cc0000; color: white; font-weight: bold; cursor: pointer;
             box-shadow: 0 0 10px rgba(255,0,0,0.4), 0 0 20px rgba(255,0,0,0.2);
-            text-transform: uppercase; letter-spacing: 1px;
-            animation: fadeInScale 0.3s ease;
-            position: relative; overflow: hidden;
-            -webkit-tap-highlight-color: transparent;
-            outline: none !important;
-            border: none !important;
+            text-transform: uppercase; letter-spacing: 1px; animation: fadeInScale 0.3s ease;
+            position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent;
+            outline: none !important; border: none !important;
         }
         button:active { background: var(--red-dark); box-shadow: 0 0 25px rgba(255,0,0,0.7); transform: scale(0.96); }
-        button::after {
-            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.08), transparent);
-            transform: rotate(45deg); transition: 0.4s; opacity: 0;
-        }
+        button::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.08), transparent); transform: rotate(45deg); transition: 0.4s; opacity: 0; }
         button:active::after { opacity: 1; left: 100%; }
         .btn-secondary { background: var(--input); border: 1px solid var(--border); box-shadow: 0 0 8px rgba(255,0,0,0.2); }
         .btn-gold { background: #996600; box-shadow: 0 0 15px rgba(255,170,0,0.5); animation: pulse 2s infinite; }
@@ -78,11 +55,7 @@
         .top-bar button { width: auto; padding: 7px 14px; font-size: 13px; background: var(--input); border: 1px solid var(--border); box-shadow: 0 0 8px rgba(255,0,0,0.15); }
         .top-bar .logo-text { color: var(--red); font-weight: bold; text-shadow: 0 0 10px var(--red); animation: glowText 2s ease-in-out infinite; font-size: 16px; }
         .tab-bar { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
-        .tab-bar button {
-            flex: 1; min-width: 55px; padding: 9px 6px; font-size: 10px;
-            background: var(--card); border: 1px solid var(--border); box-shadow: none;
-            animation: slideUp 0.3s ease; white-space: nowrap;
-        }
+        .tab-bar button { flex: 1; min-width: 55px; padding: 9px 6px; font-size: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: none; animation: slideUp 0.3s ease; white-space: nowrap; }
         .tab-bar button.active { background: #cc0000; border-color: #cc0000; box-shadow: 0 0 12px rgba(255,0,0,0.5); animation: pulse 1.5s infinite; }
         #chat-box { background: var(--card); border-radius: 6px; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 8px; font-size: 13px; border: 1px solid var(--border); }
         .chat-msg { margin-bottom: 5px; word-break: break-word; animation: fadeIn 0.2s ease; }
@@ -95,26 +68,13 @@
         .logo span { display: inline-block; animation: bounceIn 0.6s ease; }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
-        .modal {
-            background: #0a0a0a; border: 1px solid var(--red); border-radius: 12px; padding: 20px;
-            width: 90%; max-width: 400px; animation: bounceIn 0.4s ease;
-            box-shadow: 0 0 40px rgba(255,0,0,0.4);
-        }
+        .modal { background: #0a0a0a; border: 1px solid var(--red); border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; animation: bounceIn 0.4s ease; box-shadow: 0 0 40px rgba(255,0,0,0.4); }
         .modal h3 { color: var(--red); text-align: center; margin-bottom: 16px; }
         .modal button { margin-bottom: 8px; }
-        .level-badge {
-            display: inline-block; padding: 4px 10px; border-radius: 12px;
-            font-size: 12px; font-weight: bold; margin-left: 6px;
-        }
-        .level-1 { background: #333; color: #888; }
-        .level-2 { background: #2a2a4a; color: #aaa; }
-        .level-3 { background: #1a3a1a; color: #4caf50; }
-        .level-4 { background: #1a3a3a; color: #00bcd4; }
-        .level-5 { background: #2a2a1a; color: #ffeb3b; }
-        .level-6 { background: #3a1a3a; color: #e040fb; }
-        .level-7 { background: #3a2a1a; color: #ff9800; }
-        .level-8 { background: #3a1a1a; color: #f44336; }
-        .level-9 { background: #1a1a3a; color: #448aff; }
+        .level-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .level-1 { background: #333; color: #888; } .level-2 { background: #2a2a4a; color: #aaa; } .level-3 { background: #1a3a1a; color: #4caf50; }
+        .level-4 { background: #1a3a3a; color: #00bcd4; } .level-5 { background: #2a2a1a; color: #ffeb3b; } .level-6 { background: #3a1a3a; color: #e040fb; }
+        .level-7 { background: #3a2a1a; color: #ff9800; } .level-8 { background: #3a1a1a; color: #f44336; } .level-9 { background: #1a1a3a; color: #448aff; }
         .level-10 { background: linear-gradient(135deg, #ff0000, #ffaa00); color: #fff; animation: pulse 1s infinite; }
         .rank-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card); border-radius: 6px; margin-bottom: 4px; border: 1px solid var(--border); animation: slideUp 0.3s ease; }
         .rank-row:nth-child(1) .rank-pos { color: #ffd700; text-shadow: 0 0 10px #ffd700; font-size: 20px; }
@@ -238,115 +198,43 @@
     var pendingRequests = [];
 
     function esc(t) { if (!t) return ''; var d = document.createElement('div'); d.textContent = String(t); return d.innerHTML; }
-
-    function getLevel(mmr) {
-        var m = Number(mmr) || 100;
-        if (m >= 2001) return { num: 10, name: 'Бог' };
-        if (m >= 1751) return { num: 9, name: 'Легенда' };
-        if (m >= 1531) return { num: 8, name: 'Элита' };
-        if (m >= 1351) return { num: 7, name: 'Мастер' };
-        if (m >= 1201) return { num: 6, name: 'Бриллиант' };
-        if (m >= 1051) return { num: 5, name: 'Платина' };
-        if (m >= 901) return { num: 4, name: 'Золото' };
-        if (m >= 751) return { num: 3, name: 'Серебро' };
-        if (m >= 501) return { num: 2, name: 'Бронза' };
-        return { num: 1, name: 'Новичок' };
-    }
-
-    function getRankIcon(lvl) {
-        var icons = { 1: '🔰', 2: '🥉', 3: '🥈', 4: '🥇', 5: '💠', 6: '💎', 7: '👑', 8: '🔮', 9: '🌟', 10: '🔥' };
-        return icons[lvl] || '❓';
-    }
-
-    function showAuthMsg(msg, cls) {
-        var el = document.getElementById('auth-msg');
-        if (el) { el.textContent = msg; el.className = 'msg ' + (cls || ''); }
-    }
-
-    function setQueueStatus(h) {
-        var el = document.getElementById('queue-status');
-        if (el) el.innerHTML = h;
-    }
-
-    function resetQueueUI() {
-        var join = document.getElementById('btn-join-queue');
-        var leave = document.getElementById('btn-leave-queue');
-        if (join) join.style.display = 'block';
-        if (leave) leave.style.display = 'none';
-        inQueue = false;
-    }
-
-    function showScreen(id) {
-        var screens = document.getElementsByClassName('screen');
-        for (var i = 0; i < screens.length; i++) { screens[i].classList.remove('active'); }
-        var el = document.getElementById(id);
-        if (el) el.classList.add('active');
-    }
+    function getLevel(m) { m = Number(m) || 100; if (m >= 2001) return { num: 10, name: 'Бог' }; if (m >= 1751) return { num: 9, name: 'Легенда' }; if (m >= 1531) return { num: 8, name: 'Элита' }; if (m >= 1351) return { num: 7, name: 'Мастер' }; if (m >= 1201) return { num: 6, name: 'Бриллиант' }; if (m >= 1051) return { num: 5, name: 'Платина' }; if (m >= 901) return { num: 4, name: 'Золото' }; if (m >= 751) return { num: 3, name: 'Серебро' }; if (m >= 501) return { num: 2, name: 'Бронза' }; return { num: 1, name: 'Новичок' }; }
+    function getRankIcon(l) { var i = { 1: '🔰', 2: '🥉', 3: '🥈', 4: '🥇', 5: '💠', 6: '💎', 7: '👑', 8: '🔮', 9: '🌟', 10: '🔥' }; return i[l] || '❓'; }
+    function showAuthMsg(m, c) { var e = document.getElementById('auth-msg'); if (e) { e.textContent = m; e.className = 'msg ' + (c || ''); } }
+    function setQueueStatus(h) { var e = document.getElementById('queue-status'); if (e) e.innerHTML = h; }
+    function resetQueueUI() { document.getElementById('btn-join-queue').style.display = 'block'; document.getElementById('btn-leave-queue').style.display = 'none'; inQueue = false; }
+    function showScreen(id) { var ss = document.getElementsByClassName('screen'); for (var i = 0; i < ss.length; i++) ss[i].classList.remove('active'); var el = document.getElementById(id); if (el) el.classList.add('active'); }
 
     function switchTab(tab) {
         currentTab = tab;
         var btns = document.querySelectorAll('#tab-bar button');
-        for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
+        for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
         var btn = document.querySelector('#tab-bar button[data-tab="' + tab + '"]');
         if (btn) btn.classList.add('active');
-        var contents = document.getElementsByClassName('tab-content');
-        for (var j = 0; j < contents.length; j++) { contents[j].style.display = 'none'; }
-        var content = document.getElementById('tab-content-' + tab);
-        if (content) content.style.display = 'block';
+        var cs = document.getElementsByClassName('tab-content');
+        for (var j = 0; j < cs.length; j++) cs[j].style.display = 'none';
+        var c = document.getElementById('tab-content-' + tab);
+        if (c) c.style.display = 'block';
         if (tab === 'profile') updateProfileStats();
         if (tab === 'friends') loadFriends();
         if (tab === 'clan') loadClan();
         if (tab === 'mvp') loadMVP(topPeriod);
     }
 
-    function showRegister() {
-        document.getElementById('login-form').style.display = 'none';
-        document.getElementById('register-form').style.display = 'block';
-        showAuthMsg('', '');
-    }
-
-    function showLogin() {
-        document.getElementById('register-form').style.display = 'none';
-        document.getElementById('login-form').style.display = 'block';
-        showAuthMsg('', '');
-    }
-
-    function openModeModal() {
-        document.getElementById('modal-queue-mode').value = queueMode;
-        document.getElementById('modal-queue-type').value = queueType;
-        document.getElementById('modal-mode').classList.add('active');
-    }
-
-    function closeModeModal() {
-        document.getElementById('modal-mode').classList.remove('active');
-    }
-
-    function applyMode() {
-        queueMode = document.getElementById('modal-queue-mode').value;
-        queueType = document.getElementById('modal-queue-type').value;
-        var modes = { '1v1': '1 на 1', '2v2': '2 на 2', '5v5': '5 на 5' };
-        var types = { 'unranked': 'Обычный', 'ranked': 'Рейтинговый' };
-        document.getElementById('btn-mode-select').textContent = modes[queueMode] + ' · ' + types[queueType] + ' ▾';
-        closeModeModal();
-    }
+    function showRegister() { document.getElementById('login-form').style.display = 'none'; document.getElementById('register-form').style.display = 'block'; showAuthMsg('', ''); }
+    function showLogin() { document.getElementById('register-form').style.display = 'none'; document.getElementById('login-form').style.display = 'block'; showAuthMsg('', ''); }
+    function openModeModal() { document.getElementById('modal-queue-mode').value = queueMode; document.getElementById('modal-queue-type').value = queueType; document.getElementById('modal-mode').classList.add('active'); }
+    function closeModeModal() { document.getElementById('modal-mode').classList.remove('active'); }
+    function applyMode() { queueMode = document.getElementById('modal-queue-mode').value; queueType = document.getElementById('modal-queue-type').value; var ms = { '1v1': '1 на 1', '2v2': '2 на 2', '5v5': '5 на 5' }; var ts = { 'unranked': 'Обычный', 'ranked': 'Рейтинговый' }; document.getElementById('btn-mode-select').textContent = ms[queueMode] + ' · ' + ts[queueType] + ' ▾'; closeModeModal(); }
 
     function login() {
         var u = document.getElementById('login-username').value.trim();
         var p = document.getElementById('login-password').value.trim();
         if (!u || !p) { showAuthMsg('Заполни все поля', 'error'); return; }
-        fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
-        }).then(function(r) { return r.json(); }).then(function(d) {
-            if (d.success) {
-                myUserId = d.userData.id;
-                myUserData = d.userData;
-                localStorage.setItem('satoshi_userId', myUserId);
-                enterApp();
-            } else {
-                showAuthMsg(d.message || 'Неверный логин или пароль', 'error');
-            }
+        fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) { myUserId = d.userData.id; myUserData = d.userData; localStorage.setItem('satoshi_userId', myUserId); enterApp(); }
+            else showAuthMsg(d.message || 'Неверный логин или пароль', 'error');
         }).catch(function() { showAuthMsg('Сервер недоступен', 'error'); });
     }
 
@@ -356,15 +244,21 @@
         var n = document.getElementById('reg-nick').value.trim();
         var g = document.getElementById('reg-gameid').value.trim();
         if (!u || !p || !n || !g) { showAuthMsg('Все поля обязательны', 'error'); return; }
-        fetch('/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p, inGameNick: n, inGameId: g })
-        }).then(function(r) { return r.json(); }).then(function(d) {
-            if (d.success) {
-                showAuthMsg('Аккаунт создан! ID: ' + d.userId, 'success');
-                document.getElementById('login-username').value = u;
-                document.getElementById('login-password').value = p;
-                setTimeout(showLogin, 1500);
-            } else {
-                showAuthMsg(d.message ||
+        fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p, inGameNick: n, inGameId: g }) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) { showAuthMsg('Аккаунт создан! ID: ' + d.userId, 'success'); document.getElementById('login-username').value = u; document.getElementById('login-password').value = p; setTimeout(showLogin, 1500); }
+            else showAuthMsg(d.message || 'Ошибка регистрации', 'error');
+        }).catch(function() { showAuthMsg('Сервер недоступен', 'error'); });
+    }
+
+    function logout() { if (socket) socket.disconnect(); localStorage.clear(); myUserId = ''; myUserData = null; showScreen('screen-auth'); }
+    function enterApp() { showScreen('screen-main'); document.getElementById('user-nick').textContent = myUserData ? myUserData.inGameNick : myUserId; connectSocket(); switchTab('queue'); }
+
+    function connectSocket() {
+        if (socket) socket.disconnect();
+        socket = io();
+        socket.on('connect', function() { socket.emit('auth', myUserId); });
+        socket.on('queueUpdate', function(q) { displayQueues(q); });
+        socket.on('chatHistory', function(ms) { var b = document.getElementById('chat-box'); if (!b) return; b.innerHTML = ''; if (ms) for (var i = 0; i < ms.length; i++) { var m = ms[i]; addChatMsg(m.user || m.from, m.text || m.message, m.date); } });
+        socket.on('chatMessage', function(m) { addChatMsg(m.user || m.from, m.text || m.message, m.date); });
+        socket.on('matchFound', function(d) { currentMatch = d; matchTimerCount = Math.floor((d.timeout || 15000) / 1000); var i = document.getElementById('match-info'); if (i) i.innerHTML = '<b>Режим:</b> ' + d.mode + ' ' + (d.ranked ? '(Рейтинг)' : '(Обычный)') + '<br><b>Карта:</b> ' + d.map + '<br><b>Игроков:</b> ' + d.participants.length; showScreen('screen-match'); startMatchTimer
