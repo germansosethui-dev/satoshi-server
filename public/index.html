@@ -48,22 +48,6 @@
             box-shadow: 0 0 20px rgba(255,0,0,0.6), 0 0 40px rgba(255,0,0,0.3);
             transform: scale(0.98);
         }
-        button::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-            transform: rotate(45deg);
-            transition: 0.5s;
-            opacity: 0;
-        }
-        button:active::after {
-            opacity: 1;
-            left: 100%;
-        }
         .btn-secondary { 
             background: #0a0a0a; border: 1px solid #1a1a1a; 
             box-shadow: 0 0 8px rgba(255,0,0,0.2);
@@ -79,7 +63,6 @@
         .card {
             background: #050505; padding: 13px; border-radius: 6px;
             margin-bottom: 8px; border: 1px solid #111;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
         .msg { text-align: center; margin-bottom: 8px; font-size: 13px; }
         .error { color: #ff0000; text-shadow: 0 0 8px rgba(255,0,0,0.5); }
@@ -107,7 +90,6 @@
             background: #050505; border-radius: 6px; padding: 10px;
             height: 220px; overflow-y: auto; margin-bottom: 8px;
             font-size: 13px; border: 1px solid #111;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
         .chat-msg { margin-bottom: 5px; word-break: break-word; }
         .chat-msg .user { color: #ff0000; font-weight: bold; }
@@ -145,8 +127,8 @@
         <h3>ВХОД</h3>
         <input type="text" id="login-username" placeholder="Логин" autocomplete="username">
         <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
-        <button id="btn-login" onclick="login()">ВОЙТИ</button>
-        <button class="btn-secondary" onclick="showRegister()">СОЗДАТЬ АККАУНТ</button>
+        <button id="btn-login">ВОЙТИ</button>
+        <button id="btn-show-register" class="btn-secondary">СОЗДАТЬ АККАУНТ</button>
     </div>
 
     <!-- Регистрация -->
@@ -156,8 +138,8 @@
         <input type="password" id="reg-password" placeholder="Пароль">
         <input type="text" id="reg-nick" placeholder="Ник в игре">
         <input type="text" id="reg-gameid" placeholder="ID в Standoff 2">
-        <button id="btn-register" onclick="register()">ЗАРЕГИСТРИРОВАТЬСЯ</button>
-        <button class="btn-secondary" onclick="showLogin()">← НАЗАД КО ВХОДУ</button>
+        <button id="btn-register">ЗАРЕГИСТРИРОВАТЬСЯ</button>
+        <button id="btn-show-login" class="btn-secondary">← НАЗАД КО ВХОДУ</button>
     </div>
 </div>
 
@@ -166,13 +148,13 @@
     <div class="top-bar">
         <span style="color:#ff0000; font-weight:bold; text-shadow: 0 0 10px #ff0000;">🎯 SATOSHI</span>
         <span id="user-nick" style="font-size:13px; color:#777;"></span>
-        <button onclick="logout()">ВЫЙТИ</button>
+        <button id="btn-logout">ВЫЙТИ</button>
     </div>
 
     <div class="tab-bar">
-        <button id="tab-queue" class="active" onclick="switchTab('queue')">🎯 ПОИСК</button>
-        <button id="tab-chat" onclick="switchTab('chat')">💬 ЧАТ</button>
-        <button id="tab-profile" onclick="switchTab('profile')">👤 ПРОФИЛЬ</button>
+        <button id="tab-queue" class="active">🎯 ПОИСК</button>
+        <button id="tab-chat">💬 ЧАТ</button>
+        <button id="tab-profile">👤 ПРОФИЛЬ</button>
     </div>
 
     <!-- Вкладка Поиск игры -->
@@ -189,8 +171,8 @@
                 <option value="unranked">Обычный</option>
                 <option value="ranked">Рейтинговый</option>
             </select>
-            <button id="btn-join-queue" onclick="joinQueue()">🔍 НАЙТИ ИГРУ</button>
-            <button id="btn-leave-queue" class="btn-danger" style="display:none;" onclick="leaveQueue()">❌ ОТМЕНИТЬ ПОИСК</button>
+            <button id="btn-join-queue">🔍 НАЙТИ ИГРУ</button>
+            <button id="btn-leave-queue" class="btn-danger" style="display:none;">❌ ОТМЕНИТЬ ПОИСК</button>
         </div>
         <div id="queue-status" class="msg"></div>
         <h3>ИГРОКИ В ОЧЕРЕДИ</h3>
@@ -202,7 +184,7 @@
         <div id="chat-box"></div>
         <div style="display:flex; gap:8px;">
             <input type="text" id="chat-input" placeholder="Сообщение..." style="flex:1;">
-            <button onclick="sendChat()" style="width:auto; padding:13px 18px;">➤</button>
+            <button id="btn-send-chat" style="width:auto; padding:13px 18px;">➤</button>
         </div>
     </div>
 
@@ -222,289 +204,300 @@
         <p id="match-info" style="margin-bottom:8px;"></p>
         <p id="match-timer" style="color:#ff0000; font-size:22px; text-align:center; text-shadow: 0 0 10px #ff0000;"></p>
     </div>
-    <button onclick="acceptMatch()">✅ ПРИНЯТЬ</button>
-    <button class="btn-danger" onclick="declineMatch()">❌ ОТКЛОНИТЬ</button>
+    <button id="btn-accept-match">✅ ПРИНЯТЬ</button>
+    <button id="btn-decline-match" class="btn-danger">❌ ОТКЛОНИТЬ</button>
 </div>
 
 <script>
-// ================= СОСТОЯНИЕ =================
-let myUserId = localStorage.getItem('satoshi_userId') || '';
-let myUserData = null;
-let socket = null;
-let currentTab = 'queue';
-let inQueue = false;
-let queueMode = '1v1';
-let queueType = 'unranked';
-let currentMatch = null;
-let matchTimer = null;
-let matchTimerCount = 15;
+(function() {
+    'use strict';
 
-// ================= ЭКРАНЫ =================
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
+    // ================= СОСТОЯНИЕ =================
+    var myUserId = localStorage.getItem('satoshi_userId') || '';
+    var myUserData = null;
+    var socket = null;
+    var currentTab = 'queue';
+    var inQueue = false;
+    var queueMode = '1v1';
+    var queueType = 'unranked';
+    var currentMatch = null;
+    var matchTimer = null;
+    var matchTimerCount = 15;
 
-function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-    var tabBtn = document.getElementById('tab-' + tab);
-    if (tabBtn) tabBtn.classList.add('active');
-    document.querySelectorAll('[id^="tab-content-"]').forEach(function(d) { d.style.display = 'none'; });
-    var content = document.getElementById('tab-content-' + tab);
-    if (content) content.style.display = 'block';
-    if (tab === 'profile') updateProfileStats();
-}
-
-function showRegister() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('register-form').style.display = 'block';
-    document.getElementById('auth-msg').textContent = '';
-    document.getElementById('auth-msg').className = 'msg';
-}
-
-function showLogin() {
-    document.getElementById('register-form').style.display = 'none';
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('auth-msg').textContent = '';
-    document.getElementById('auth-msg').className = 'msg';
-}
-
-// ================= АВТОРИЗАЦИЯ =================
-function login() {
-    var username = document.getElementById('login-username').value.trim();
-    var password = document.getElementById('login-password').value.trim();
-    if (!username || !password) return showAuthMsg('Заполни все поля', 'error');
-
-    fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, password: password })
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        console.log('LOGIN RESPONSE:', data);
-        if (data.success) {
-            myUserId = data.userData.id;
-            myUserData = data.userData;
-            localStorage.setItem('satoshi_userId', myUserId);
-            enterApp();
-        } else {
-            showAuthMsg(data.message || 'Неверный логин или пароль', 'error');
+    // ================= ЭКРАНЫ =================
+    function showScreen(id) {
+        var screens = document.querySelectorAll('.screen');
+        for (var i = 0; i < screens.length; i++) {
+            screens[i].classList.remove('active');
         }
-    })
-    .catch(function(e) {
-        showAuthMsg('Сервер недоступен', 'error');
-    });
-}
-
-function register() {
-    var username = document.getElementById('reg-username').value.trim();
-    var password = document.getElementById('reg-password').value.trim();
-    var inGameNick = document.getElementById('reg-nick').value.trim();
-    var inGameId = document.getElementById('reg-gameid').value.trim();
-
-    if (!username || !password || !inGameNick || !inGameId) {
-        return showAuthMsg('Все поля обязательны', 'error');
+        document.getElementById(id).classList.add('active');
     }
 
-    fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, password: password, inGameNick: inGameNick, inGameId: inGameId })
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        console.log('REGISTER RESPONSE:', data);
-        if (data.success) {
-            showAuthMsg('Аккаунт создан! ID: ' + data.userId, 'success');
-            document.getElementById('login-username').value = username;
-            document.getElementById('login-password').value = password;
-            setTimeout(function() {
-                showLogin();
-            }, 1500);
-        } else {
-            showAuthMsg(data.message || 'Ошибка регистрации', 'error');
+    function switchTab(tab) {
+        currentTab = tab;
+        var tabBtns = document.querySelectorAll('.tab-bar button');
+        for (var i = 0; i < tabBtns.length; i++) {
+            tabBtns[i].classList.remove('active');
         }
-    })
-    .catch(function(e) {
-        showAuthMsg('Сервер недоступен', 'error');
-    });
-}
-
-function showAuthMsg(msg, cls) {
-    var el = document.getElementById('auth-msg');
-    el.textContent = msg;
-    el.className = 'msg ' + cls;
-}
-
-function logout() {
-    if (socket) socket.disconnect();
-    localStorage.clear();
-    myUserId = '';
-    myUserData = null;
-    showScreen('screen-auth');
-    document.getElementById('login-username').value = '';
-    document.getElementById('login-password').value = '';
-}
-
-// ================= ВХОД В ПРИЛОЖЕНИЕ =================
-function enterApp() {
-    showScreen('screen-main');
-    document.getElementById('user-nick').textContent = myUserData ? myUserData.inGameNick : myUserId;
-    connectSocket();
-    switchTab('queue');
-}
-
-// ================= SOCKET.IO =================
-function connectSocket() {
-    if (socket) socket.disconnect();
-    socket = io();
-
-    socket.on('connect', function() {
-        console.log('Socket connected, auth with:', myUserId);
-        socket.emit('auth', myUserId);
-    });
-
-    socket.on('queueUpdate', function(queues) {
-        displayQueues(queues);
-    });
-
-    socket.on('chatHistory', function(messages) {
-        var box = document.getElementById('chat-box');
-        box.innerHTML = '';
-        if (messages && messages.length) {
-            messages.forEach(function(m) {
-                addChatMsg(m.user || m.from, m.text || m.message, m.date);
-            });
+        var tabBtn = document.getElementById('tab-' + tab);
+        if (tabBtn) tabBtn.classList.add('active');
+        var contents = document.querySelectorAll('[id^="tab-content-"]');
+        for (var j = 0; j < contents.length; j++) {
+            contents[j].style.display = 'none';
         }
-    });
+        var content = document.getElementById('tab-content-' + tab);
+        if (content) content.style.display = 'block';
+        if (tab === 'profile') updateProfileStats();
+    }
 
-    socket.on('chatMessage', function(msg) {
-        addChatMsg(msg.user || msg.from, msg.text || msg.message, msg.date);
-    });
+    function showRegister() {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+        var msg = document.getElementById('auth-msg');
+        msg.textContent = '';
+        msg.className = 'msg';
+    }
 
-    socket.on('matchFound', function(data) {
-        console.log('Match found:', data);
-        currentMatch = data;
-        matchTimerCount = Math.floor((data.timeout || 15000) / 1000);
-        document.getElementById('match-info').innerHTML =
-            '<b>Режим:</b> ' + data.mode + ' ' + (data.ranked ? '(Рейтинг)' : '(Обычный)') + '<br>' +
-            '<b>Карта:</b> ' + data.map + '<br>' +
-            '<b>Игроков:</b> ' + data.participants.length;
-        showScreen('screen-match');
-        startMatchTimer();
-    });
+    function showLogin() {
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('login-form').style.display = 'block';
+        var msg = document.getElementById('auth-msg');
+        msg.textContent = '';
+        msg.className = 'msg';
+    }
 
-    socket.on('matchCancelled', function(data) {
-        console.log('Match cancelled:', data);
-        currentMatch = null;
-        clearInterval(matchTimer);
+    // ================= АВТОРИЗАЦИЯ =================
+    function login() {
+        console.log('LOGIN CALLED');
+        var username = document.getElementById('login-username').value.trim();
+        var password = document.getElementById('login-password').value.trim();
+        if (!username || !password) {
+            showAuthMsg('Заполни все поля', 'error');
+            return;
+        }
+
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            console.log('LOGIN RESPONSE:', data);
+            if (data.success) {
+                myUserId = data.userData.id;
+                myUserData = data.userData;
+                localStorage.setItem('satoshi_userId', myUserId);
+                enterApp();
+            } else {
+                showAuthMsg(data.message || 'Неверный логин или пароль', 'error');
+            }
+        })
+        .catch(function(e) {
+            console.log('LOGIN ERROR:', e);
+            showAuthMsg('Сервер недоступен', 'error');
+        });
+    }
+
+    function register() {
+        console.log('REGISTER CALLED');
+        var username = document.getElementById('reg-username').value.trim();
+        var password = document.getElementById('reg-password').value.trim();
+        var inGameNick = document.getElementById('reg-nick').value.trim();
+        var inGameId = document.getElementById('reg-gameid').value.trim();
+
+        if (!username || !password || !inGameNick || !inGameId) {
+            showAuthMsg('Все поля обязательны', 'error');
+            return;
+        }
+
+        fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: username, 
+                password: password, 
+                inGameNick: inGameNick, 
+                inGameId: inGameId 
+            })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            console.log('REGISTER RESPONSE:', data);
+            if (data.success) {
+                showAuthMsg('Аккаунт создан! ID: ' + data.userId, 'success');
+                document.getElementById('login-username').value = username;
+                document.getElementById('login-password').value = password;
+                setTimeout(function() {
+                    showLogin();
+                }, 1500);
+            } else {
+                showAuthMsg(data.message || 'Ошибка регистрации', 'error');
+            }
+        })
+        .catch(function(e) {
+            console.log('REGISTER ERROR:', e);
+            showAuthMsg('Сервер недоступен', 'error');
+        });
+    }
+
+    function showAuthMsg(msg, cls) {
+        var el = document.getElementById('auth-msg');
+        el.textContent = msg;
+        el.className = 'msg ' + cls;
+    }
+
+    function logout() {
+        if (socket) socket.disconnect();
+        localStorage.clear();
+        myUserId = '';
+        myUserData = null;
+        showScreen('screen-auth');
+        document.getElementById('login-username').value = '';
+        document.getElementById('login-password').value = '';
+    }
+
+    // ================= ВХОД В ПРИЛОЖЕНИЕ =================
+    function enterApp() {
         showScreen('screen-main');
-        document.getElementById('queue-status').innerHTML = '<span class="error">Матч отменён</span>';
-        document.getElementById('btn-join-queue').style.display = 'block';
-        document.getElementById('btn-leave-queue').style.display = 'none';
-        inQueue = false;
-    });
+        document.getElementById('user-nick').textContent = myUserData ? myUserData.inGameNick : myUserId;
+        connectSocket();
+        switchTab('queue');
+    }
 
-    socket.on('queueError', function(data) {
-        document.getElementById('queue-status').innerHTML = '<span class="error">' + (data.message || 'Ошибка') + '</span>';
-    });
+    // ================= SOCKET.IO =================
+    function connectSocket() {
+        if (socket) socket.disconnect();
+        socket = io();
 
-    socket.on('banned', function(data) {
-        alert('Вы забанены до ' + new Date(data.until).toLocaleString() + '. Причина: ' + data.reason);
-        logout();
-    });
+        socket.on('connect', function() {
+            console.log('Socket connected, auth with:', myUserId);
+            socket.emit('auth', myUserId);
+        });
 
-    socket.on('muted', function(data) {
-        document.getElementById('queue-status').innerHTML = '<span class="error">Вы замьючены до ' + new Date(data.until).toLocaleString() + '</span>';
-    });
-}
+        socket.on('queueUpdate', function(queues) {
+            displayQueues(queues);
+        });
 
-// ================= ОЧЕРЕДЬ =================
-function joinQueue() {
-    queueMode = document.getElementById('queue-mode').value;
-    queueType = document.getElementById('queue-type').value;
-    socket.emit('joinQueue', { mode: queueMode, ranked: queueType === 'ranked' });
-    inQueue = true;
-    document.getElementById('btn-join-queue').style.display = 'none';
-    document.getElementById('btn-leave-queue').style.display = 'block';
-    document.getElementById('queue-status').innerHTML = '<span style="color:#ff0000; text-shadow: 0 0 8px #ff0000;">🔍 Поиск игры...</span>';
-}
+        socket.on('chatHistory', function(messages) {
+            var box = document.getElementById('chat-box');
+            box.innerHTML = '';
+            if (messages && messages.length) {
+                for (var i = 0; i < messages.length; i++) {
+                    var m = messages[i];
+                    addChatMsg(m.user || m.from, m.text || m.message, m.date);
+                }
+            }
+        });
 
-function leaveQueue() {
-    socket.emit('leaveQueue', { mode: queueMode, ranked: queueType === 'ranked' });
-    inQueue = false;
-    document.getElementById('btn-join-queue').style.display = 'block';
-    document.getElementById('btn-leave-queue').style.display = 'none';
-    document.getElementById('queue-status').innerHTML = '';
-}
+        socket.on('chatMessage', function(msg) {
+            addChatMsg(msg.user || msg.from, msg.text || msg.message, msg.date);
+        });
 
-function acceptMatch() {
-    if (!currentMatch) return;
-    socket.emit('acceptMatch', { matchId: currentMatch.id });
-    clearInterval(matchTimer);
-    showScreen('screen-main');
-    document.getElementById('queue-status').innerHTML = '<span class="success">Матч принят! Заходи в Standoff 2</span>';
-    document.getElementById('btn-join-queue').style.display = 'block';
-    document.getElementById('btn-leave-queue').style.display = 'none';
-    inQueue = false;
-    currentMatch = null;
-}
+        socket.on('matchFound', function(data) {
+            console.log('Match found:', data);
+            currentMatch = data;
+            matchTimerCount = Math.floor((data.timeout || 15000) / 1000);
+            document.getElementById('match-info').innerHTML =
+                '<b>Режим:</b> ' + data.mode + ' ' + (data.ranked ? '(Рейтинг)' : '(Обычный)') + '<br>' +
+                '<b>Карта:</b> ' + data.map + '<br>' +
+                '<b>Игроков:</b> ' + data.participants.length;
+            showScreen('screen-match');
+            startMatchTimer();
+        });
 
-function declineMatch() {
-    if (!currentMatch) return;
-    socket.emit('declineMatch', { matchId: currentMatch.id });
-    clearInterval(matchTimer);
-    showScreen('screen-main');
-    document.getElementById('btn-join-queue').style.display = 'block';
-    document.getElementById('btn-leave-queue').style.display = 'none';
-    inQueue = false;
-    currentMatch = null;
-}
-
-function startMatchTimer() {
-    clearInterval(matchTimer);
-    var timerEl = document.getElementById('match-timer');
-    timerEl.textContent = matchTimerCount + ' сек';
-    matchTimer = setInterval(function() {
-        matchTimerCount--;
-        timerEl.textContent = matchTimerCount + ' сек';
-        if (matchTimerCount <= 0) {
+        socket.on('matchCancelled', function() {
+            currentMatch = null;
             clearInterval(matchTimer);
             showScreen('screen-main');
+            document.getElementById('queue-status').innerHTML = '<span class="error">Матч отменён</span>';
             document.getElementById('btn-join-queue').style.display = 'block';
             document.getElementById('btn-leave-queue').style.display = 'none';
             inQueue = false;
-            currentMatch = null;
-        }
-    }, 1000);
-}
+        });
 
-function displayQueues(queues) {
-    var container = document.getElementById('queue-list');
-    var html = '';
-    for (var key in queues) {
-        var q = queues[key];
-        if (!q || q.length === 0) continue;
-        var label = key.replace(/_/g, ' → ');
-        html += '<div class="queue-info"><b>' + label + ':</b> ' + q.length + ' игроков</div>';
+        socket.on('queueError', function(data) {
+            document.getElementById('queue-status').innerHTML = '<span class="error">' + (data.message || 'Ошибка') + '</span>';
+        });
+
+        socket.on('banned', function(data) {
+            alert('Вы забанены до ' + new Date(data.until).toLocaleString() + '. Причина: ' + data.reason);
+            logout();
+        });
+
+        socket.on('muted', function(data) {
+            document.getElementById('queue-status').innerHTML = '<span class="error">Вы замьючены до ' + new Date(data.until).toLocaleString() + '</span>';
+        });
     }
-    if (!html) html = '<p style="color:#444; text-align:center;">Очереди пусты</p>';
-    container.innerHTML = html;
-}
 
-// ================= ЧАТ =================
-function sendChat() {
-    var input = document.getElementById('chat-input');
-    var text = input.value.trim();
-    if (!text || !socket) return;
-    socket.emit('chatMessage', { text: text });
-    input.value = '';
-}
+    // ================= ОЧЕРЕДЬ =================
+    function joinQueue() {
+        queueMode = document.getElementById('queue-mode').value;
+        queueType = document.getElementById('queue-type').value;
+        socket.emit('joinQueue', { mode: queueMode, ranked: queueType === 'ranked' });
+        inQueue = true;
+        document.getElementById('btn-join-queue').style.display = 'none';
+        document.getElementById('btn-leave-queue').style.display = 'block';
+        document.getElementById('queue-status').innerHTML = '<span style="color:#ff0000;">🔍 Поиск игры...</span>';
+    }
 
-function addChatMsg(user, text, date) {
-    var box = document.getElementById('chat-box');
-    var time = date ? new Date(date).toLocaleTimeString().slice(0,5) : new Date().toLocaleTimeString().slice(0,5);
-    var displayUser = (user === myUserId || user === (myUserData && myUserData.username)) ? 'Я' : (user || 'Аноним');
-    box.innerHTML += '<div class="chat-msg"><span class="user">' + esc(displayUser) + '</span><span class="t
+    function leaveQueue() {
+        socket.emit('leaveQueue', { mode: queueMode, ranked: queueType === 'ranked' });
+        inQueue = false;
+        document.getElementById('btn-join-queue').style.display = 'block';
+        document.getElementById('btn-leave-queue').style.display = 'none';
+        document.getElementById('queue-status').innerHTML = '';
+    }
+
+    function acceptMatch() {
+        if (!currentMatch) return;
+        socket.emit('acceptMatch', { matchId: currentMatch.id });
+        clearInterval(matchTimer);
+        showScreen('screen-main');
+        document.getElementById('queue-status').innerHTML = '<span class="success">Матч принят! Заходи в Standoff 2</span>';
+        document.getElementById('btn-join-queue').style.display = 'block';
+        document.getElementById('btn-leave-queue').style.display = 'none';
+        inQueue = false;
+        currentMatch = null;
+    }
+
+    function declineMatch() {
+        if (!currentMatch) return;
+        socket.emit('declineMatch', { matchId: currentMatch.id });
+        clearInterval(matchTimer);
+        showScreen('screen-main');
+        document.getElementById('btn-join-queue').style.display = 'block';
+        document.getElementById('btn-leave-queue').style.display = 'none';
+        inQueue = false;
+        currentMatch = null;
+    }
+
+    function startMatchTimer() {
+        clearInterval(matchTimer);
+        var timerEl = document.getElementById('match-timer');
+        timerEl.textContent = matchTimerCount + ' сек';
+        matchTimer = setInterval(function() {
+            matchTimerCount--;
+            timerEl.textContent = matchTimerCount + ' сек';
+            if (matchTimerCount <= 0) {
+                clearInterval(matchTimer);
+                showScreen('screen-main');
+                document.getElementById('btn-join-queue').style.display = 'block';
+                document.getElementById('btn-leave-queue').style.display = 'none';
+                inQueue = false;
+                currentMatch = null;
+            }
+        }, 1000);
+    }
+
+    function displayQueues(queues) {
+        var container = document.getElementById('queue-list');
+        var html = '';
+        for (var key in queues) {
+            var q = queues[key];
+            if (!q || q.length === 0) continue;
+            var label = key.replace(/_/g, ' → ');
+            html += '<div class="queue-info"><b>' + label + ':</b> ' + q.length + ' игроков</div>';
+        }
+        if (!html) html = '<p style="color:#444; text-align:center;">Очереди пусты</p>';
+        container.innerHTML 
