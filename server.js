@@ -769,3 +769,71 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
+    }
+  });
+
+  socket.on('acceptMatch', ({ matchId }) => {
+    const userId = socketToUser[socket.id];
+    if (!userId) return;
+    const match = pendingMatches.find(m => m.id === matchId);
+    if (!match) return;
+    if (match.status === 'waiting_accept') {
+      match.status = 'accepted';
+    }
+  });
+
+  socket.on('declineMatch', ({ matchId }) => {
+    const userId = socketToUser[socket.id];
+    if (!userId) return;
+    const match = pendingMatches.find(m => m.id === matchId);
+    if (!match) return;
+    if (match.status === 'waiting_accept') {
+      match.status = 'cancelled';
+      const idx = pendingMatches.findIndex(m => m.id === matchId);
+      if (idx !== -1) pendingMatches.splice(idx, 1);
+      match.participants.forEach(pid => {
+        const sid = userSockets[pid];
+        if (sid) io.to(sid).emit('matchCancelled', { matchId: match.id });
+      });
+    }
+  });
+
+  socket.on('chatMessage', ({ text }) => {
+    const userId = socketToUser[socket.id];
+    if (!userId) return;
+    if (isMuted(userId)) {
+      socket.emit('muted', { until: mutes[userId].until, reason: mutes[userId].reason });
+      return;
+    }
+    const user = users[userId];
+    const msg = {
+      user: user ? user.username : userId,
+      text,
+      date: new Date().toISOString()
+    };
+    chatMessages.push(msg);
+    if (chatMessages.length > 500) chatMessages.shift();
+    broadcastChatMessage(msg);
+  });
+
+  socket.on('disconnect', () => {
+    const userId = socketToUser[socket.id];
+    if (userId) {
+      delete userSockets[userId];
+      delete socketToUser[socket.id];
+      for (const key in queues) {
+        const queue = queues[key];
+        const idx = queue.findIndex(entry => entry.userId === userId);
+        if (idx !== -1) {
+          queue.splice(idx, 1);
+          broadcastQueueState();
+        }
+      }
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('Сервер запущен на порту ' + PORT);
+});
