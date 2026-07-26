@@ -50,7 +50,7 @@
             transition: all 0.3s ease; -webkit-appearance: none;
         }
         input, select { background: var(--input); color: #ccc; }
-        input:focus { border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; animation: pulse 1.5s infinite; }
+        input:focus { border-color: var(--red); box-shadow: 0 0 15px rgba(255,0,0,0.4) !important; }
         button {
             background: #cc0000; color: white; font-weight: bold; cursor: pointer;
             box-shadow: 0 0 10px rgba(255,0,0,0.4), 0 0 20px rgba(255,0,0,0.2);
@@ -124,7 +124,6 @@
 </head>
 <body>
 
-<!-- АВТОРИЗАЦИЯ -->
 <div id="screen-auth" class="screen active">
     <div class="logo"><span>🎯</span></div>
     <h1>SATOSHI</h1>
@@ -147,7 +146,6 @@
     </div>
 </div>
 
-<!-- ГЛАВНЫЙ ЭКРАН -->
 <div id="screen-main" class="screen">
     <div class="top-bar">
         <span class="logo-text">🎯 SATOSHI</span>
@@ -162,7 +160,6 @@
         <button data-tab="clan">🏠 КЛАН</button>
         <button data-tab="mvp">🏆 ТОП</button>
     </div>
-
     <div class="tab-content" id="tab-content-queue">
         <div class="card">
             <label>РЕЖИМ</label>
@@ -174,7 +171,6 @@
         <h3>ИГРОКИ В ОЧЕРЕДИ</h3>
         <div id="queue-list">Загрузка...</div>
     </div>
-
     <div class="tab-content" id="tab-content-chat" style="display:none;">
         <div id="chat-box"></div>
         <div style="display:flex; gap:8px;">
@@ -182,19 +178,15 @@
             <button id="btn-send-chat" style="width:auto; padding:13px 18px;">➤</button>
         </div>
     </div>
-
     <div class="tab-content" id="tab-content-profile" style="display:none;">
-        <div class="card"><h3>МОЯ СТАТИСТИКА</h3><div id="profile-stats"><div style="height:150px;"></div></div></div>
+        <div class="card"><h3>МОЯ СТАТИСТИКА</h3><div id="profile-stats">Загрузка...</div></div>
     </div>
-
     <div class="tab-content" id="tab-content-friends" style="display:none;">
         <div class="card"><h3>ДРУЗЬЯ</h3><div id="friends-list">Загрузка...</div></div>
     </div>
-
     <div class="tab-content" id="tab-content-clan" style="display:none;">
         <div class="card"><h3>КЛАН</h3><div id="clan-info">Загрузка...</div></div>
     </div>
-
     <div class="tab-content" id="tab-content-mvp" style="display:none;">
         <div class="card"><h3>🏆 ТОП ИГРОКОВ</h3>
             <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -207,7 +199,6 @@
     </div>
 </div>
 
-<!-- МАТЧ -->
 <div id="screen-match" class="screen">
     <h2>⚔️ МАТЧ НАЙДЕН!</h2>
     <div class="card">
@@ -218,7 +209,6 @@
     <button id="btn-decline-match" class="btn-danger">❌ ОТКЛОНИТЬ</button>
 </div>
 
-<!-- МОДАЛКА РЕЖИМА -->
 <div class="modal-overlay" id="modal-mode">
     <div class="modal">
         <h3>ВЫБОР РЕЖИМА</h3>
@@ -233,9 +223,6 @@
 
 <script>
 (function() {
-    'use strict';
-
-    // СОСТОЯНИЕ
     var myUserId = localStorage.getItem('satoshi_userId') || '';
     var myUserData = null;
     var socket = null;
@@ -250,24 +237,19 @@
     var friendsList = [];
     var pendingRequests = [];
 
-    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (объявлены первыми)
-    function esc(t) {
-        if (!t) return '';
-        var d = document.createElement('div');
-        d.textContent = String(t);
-        return d.innerHTML;
-    }
+    function esc(t) { if (!t) return ''; var d = document.createElement('div'); d.textContent = String(t); return d.innerHTML; }
 
     function getLevel(mmr) {
-        if (mmr >= 2001) return { num: 10, name: 'Бог' };
-        if (mmr >= 1751) return { num: 9, name: 'Легенда' };
-        if (mmr >= 1531) return { num: 8, name: 'Элита' };
-        if (mmr >= 1351) return { num: 7, name: 'Мастер' };
-        if (mmr >= 1201) return { num: 6, name: 'Бриллиант' };
-        if (mmr >= 1051) return { num: 5, name: 'Платина' };
-        if (mmr >= 901) return { num: 4, name: 'Золото' };
-        if (mmr >= 751) return { num: 3, name: 'Серебро' };
-        if (mmr >= 501) return { num: 2, name: 'Бронза' };
+        var m = Number(mmr) || 100;
+        if (m >= 2001) return { num: 10, name: 'Бог' };
+        if (m >= 1751) return { num: 9, name: 'Легенда' };
+        if (m >= 1531) return { num: 8, name: 'Элита' };
+        if (m >= 1351) return { num: 7, name: 'Мастер' };
+        if (m >= 1201) return { num: 6, name: 'Бриллиант' };
+        if (m >= 1051) return { num: 5, name: 'Платина' };
+        if (m >= 901) return { num: 4, name: 'Золото' };
+        if (m >= 751) return { num: 3, name: 'Серебро' };
+        if (m >= 501) return { num: 2, name: 'Бронза' };
         return { num: 1, name: 'Новичок' };
     }
 
@@ -278,9 +260,7 @@
 
     function showAuthMsg(msg, cls) {
         var el = document.getElementById('auth-msg');
-        if (!el) return;
-        el.textContent = msg;
-        el.className = 'msg ' + (cls || '');
+        if (el) { el.textContent = msg; el.className = 'msg ' + (cls || ''); }
     }
 
     function setQueueStatus(h) {
@@ -289,17 +269,16 @@
     }
 
     function resetQueueUI() {
-        document.getElementById('btn-join-queue').style.display = 'block';
-        document.getElementById('btn-leave-queue').style.display = 'none';
+        var join = document.getElementById('btn-join-queue');
+        var leave = document.getElementById('btn-leave-queue');
+        if (join) join.style.display = 'block';
+        if (leave) leave.style.display = 'none';
         inQueue = false;
     }
 
-    // ЭКРАНЫ
     function showScreen(id) {
         var screens = document.getElementsByClassName('screen');
-        for (var i = 0; i < screens.length; i++) {
-            screens[i].classList.remove('active');
-        }
+        for (var i = 0; i < screens.length; i++) { screens[i].classList.remove('active'); }
         var el = document.getElementById(id);
         if (el) el.classList.add('active');
     }
@@ -307,18 +286,13 @@
     function switchTab(tab) {
         currentTab = tab;
         var btns = document.querySelectorAll('#tab-bar button');
-        for (var i = 0; i < btns.length; i++) {
-            btns[i].classList.remove('active');
-        }
-        var activeBtn = document.querySelector('#tab-bar button[data-tab="' + tab + '"]');
-        if (activeBtn) activeBtn.classList.add('active');
+        for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
+        var btn = document.querySelector('#tab-bar button[data-tab="' + tab + '"]');
+        if (btn) btn.classList.add('active');
         var contents = document.getElementsByClassName('tab-content');
-        for (var j = 0; j < contents.length; j++) {
-            contents[j].style.display = 'none';
-        }
+        for (var j = 0; j < contents.length; j++) { contents[j].style.display = 'none'; }
         var content = document.getElementById('tab-content-' + tab);
         if (content) content.style.display = 'block';
-
         if (tab === 'profile') updateProfileStats();
         if (tab === 'friends') loadFriends();
         if (tab === 'clan') loadClan();
@@ -337,7 +311,6 @@
         showAuthMsg('', '');
     }
 
-    // МОДАЛКА
     function openModeModal() {
         document.getElementById('modal-queue-mode').value = queueMode;
         document.getElementById('modal-queue-type').value = queueType;
@@ -351,13 +324,12 @@
     function applyMode() {
         queueMode = document.getElementById('modal-queue-mode').value;
         queueType = document.getElementById('modal-queue-type').value;
-        var modeNames = { '1v1': '1 на 1', '2v2': '2 на 2', '5v5': '5 на 5' };
-        var typeNames = { 'unranked': 'Обычный', 'ranked': 'Рейтинговый' };
-        document.getElementById('btn-mode-select').textContent = modeNames[queueMode] + ' · ' + typeNames[queueType] + ' ▾';
+        var modes = { '1v1': '1 на 1', '2v2': '2 на 2', '5v5': '5 на 5' };
+        var types = { 'unranked': 'Обычный', 'ranked': 'Рейтинговый' };
+        document.getElementById('btn-mode-select').textContent = modes[queueMode] + ' · ' + types[queueType] + ' ▾';
         closeModeModal();
     }
 
-    // АВТОРИЗАЦИЯ
     function login() {
         var u = document.getElementById('login-username').value.trim();
         var p = document.getElementById('login-password').value.trim();
@@ -375,9 +347,7 @@
             } else {
                 showAuthMsg(d.message || 'Неверный логин или пароль', 'error');
             }
-        }).catch(function() {
-            showAuthMsg('Сервер недоступен', 'error');
-        });
+        }).catch(function() { showAuthMsg('Сервер недоступен', 'error'); });
     }
 
     function register() {
@@ -390,4 +360,11 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: u, password: p, inGameNick: n, inGameId: g })
-        }).then(function(r) { return r.json(); }).then(func
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) {
+                showAuthMsg('Аккаунт создан! ID: ' + d.userId, 'success');
+                document.getElementById('login-username').value = u;
+                document.getElementById('login-password').value = p;
+                setTimeout(showLogin, 1500);
+            } else {
+                showAuthMsg(d.message ||
