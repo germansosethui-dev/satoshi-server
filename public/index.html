@@ -3,443 +3,467 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Satoshi</title>
+    <title>Standoff 2 | Matchmaking</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            min-height: 100vh;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 16px;
+            background: #0d0d1a; color: #eee; min-height: 100vh;
+            max-width: 500px; margin: 0 auto; padding: 16px;
             -webkit-tap-highlight-color: transparent;
         }
-        .screen {
-            display: none;
+        .screen { display: none; }
+        .screen.active { display: block; }
+        h1 { text-align: center; color: #ff5722; margin-bottom: 20px; font-size: 26px; }
+        h2 { color: #ff5722; margin-bottom: 12px; font-size: 19px; }
+        h3 { color: #ccc; margin-bottom: 8px; font-size: 15px; }
+        input, button, select {
+            width: 100%; padding: 13px; margin-bottom: 10px;
+            border-radius: 8px; border: none; font-size: 15px;
         }
-        .screen.active {
-            display: block;
+        input, select { background: #1a1a2e; color: #eee; border: 1px solid #2a2a4a; }
+        button { background: #ff5722; color: white; font-weight: bold; cursor: pointer; }
+        button:active { background: #e04e1c; }
+        .btn-secondary { background: #2a2a4a; }
+        .btn-danger { background: #c0392b; }
+        .card {
+            background: #1a1a2e; padding: 13px; border-radius: 8px;
+            margin-bottom: 8px; border: 1px solid #2a2a4a;
         }
-        h1 {
-            text-align: center;
-            color: #e94560;
-            margin-bottom: 20px;
-            font-size: 28px;
-        }
-        h2 {
-            color: #e94560;
-            margin-bottom: 12px;
-            font-size: 20px;
-        }
-        input, button {
-            width: 100%;
-            padding: 14px;
-            margin-bottom: 12px;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px;
-        }
-        input {
-            background: #16213e;
-            color: #eee;
-            border: 1px solid #0f3460;
-        }
-        button {
-            background: #e94560;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        button:active {
-            background: #c73e54;
-        }
-        .server-card {
-            background: #16213e;
-            padding: 14px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            border: 1px solid #0f3460;
-            transition: border 0.2s;
-        }
-        .server-card:active {
-            border-color: #e94560;
-        }
-        .server-name {
-            font-size: 17px;
-            font-weight: bold;
-        }
-        .server-info {
-            font-size: 13px;
-            color: #aaa;
-            margin-top: 4px;
-        }
-        #chat-box {
-            background: #16213e;
-            border-radius: 8px;
-            padding: 12px;
-            height: 300px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            font-size: 14px;
-            border: 1px solid #0f3460;
-        }
-        .chat-msg {
-            margin-bottom: 6px;
-            word-break: break-word;
-        }
-        .chat-msg .user {
-            color: #e94560;
-            font-weight: bold;
-        }
-        .chat-msg .time {
-            color: #666;
-            font-size: 11px;
-            margin-left: 6px;
-        }
-        .error {
-            color: #e94560;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        .success {
-            color: #4ecca3;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
+        .msg { text-align: center; margin-bottom: 8px; font-size: 13px; }
+        .error { color: #ff5722; }
+        .success { color: #4caf50; }
         .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
         }
-        .top-bar button {
-            width: auto;
-            padding: 8px 16px;
-            font-size: 14px;
-            background: #0f3460;
+        .top-bar button { width: auto; padding: 7px 14px; font-size: 13px; background: #2a2a4a; }
+        .tab-bar { display: flex; gap: 6px; margin-bottom: 14px; }
+        .tab-bar button { flex: 1; padding: 9px; font-size: 12px; background: #2a2a4a; }
+        .tab-bar button.active { background: #ff5722; }
+        #chat-box, #lobby-chat {
+            background: #1a1a2e; border-radius: 8px; padding: 10px;
+            height: 220px; overflow-y: auto; margin-bottom: 8px;
+            font-size: 13px; border: 1px solid #2a2a4a;
+        }
+        .chat-msg { margin-bottom: 5px; word-break: break-word; }
+        .chat-msg .user { color: #ff5722; font-weight: bold; }
+        .chat-msg .time { color: #555; font-size: 10px; margin-left: 4px; }
+        .queue-info {
+            background: #1a1a2e; padding: 8px 12px; border-radius: 8px;
+            margin-bottom: 8px; font-size: 12px; border: 1px solid #2a2a4a;
         }
         .badge {
-            background: #e94560;
-            color: white;
-            border-radius: 50%;
-            padding: 2px 7px;
-            font-size: 11px;
-            margin-left: 4px;
+            background: #ff5722; color: white; border-radius: 10px;
+            padding: 1px 6px; font-size: 10px; margin-left: 3px;
         }
+        .player-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 0; border-bottom: 1px solid #2a2a4a;
+        }
+        .row { display: flex; gap: 8px; }
+        .row input, .row select { flex: 1; }
+        label { font-size: 12px; color: #aaa; display: block; margin-bottom: 3px; }
     </style>
 </head>
 <body>
 
-<!-- ЭКРАН ЛОГИНА -->
+<!-- ЭКРАН АВТОРИЗАЦИИ -->
 <div id="screen-auth" class="screen active">
-    <h1>🎯 SATOSHI</h1>
-    <div id="auth-error" class="error"></div>
-    <input type="text" id="username" placeholder="Логин" autocomplete="username">
-    <input type="password" id="password" placeholder="Пароль" autocomplete="current-password">
-    <button onclick="login()">Войти</button>
-    <button onclick="register()" style="background:#0f3460;">Создать аккаунт</button>
+    <h1>🔫 STANDOFF 2</h1>
+    <div id="auth-msg" class="msg"></div>
+
+    <!-- Вход -->
+    <div id="login-form">
+        <h3>Вход</h3>
+        <input type="text" id="login-username" placeholder="Логин">
+        <input type="password" id="login-password" placeholder="Пароль">
+        <button onclick="login()">Войти</button>
+        <button class="btn-secondary" onclick="showRegister()">Создать аккаунт</button>
+    </div>
+
+    <!-- Регистрация -->
+    <div id="register-form" style="display:none;">
+        <h3>Регистрация</h3>
+        <input type="text" id="reg-username" placeholder="Логин">
+        <input type="password" id="reg-password" placeholder="Пароль">
+        <input type="text" id="reg-nick" placeholder="Ник в игре">
+        <input type="text" id="reg-gameid" placeholder="ID в Standoff 2">
+        <button onclick="register()">Зарегистрироваться</button>
+        <button class="btn-secondary" onclick="showLogin()">← Назад ко входу</button>
+    </div>
 </div>
 
-<!-- ЭКРАН СПИСКА СЕРВЕРОВ -->
-<div id="screen-lobby" class="screen">
+<!-- ГЛАВНЫЙ ЭКРАН -->
+<div id="screen-main" class="screen">
     <div class="top-bar">
-        <h2>🎯 SATOSHI</h2>
+        <span style="color:#ff5722; font-weight:bold;">🔫 STANDOFF 2</span>
+        <span id="user-nick" style="font-size:13px;"></span>
         <button onclick="logout()">Выйти</button>
     </div>
-    <div style="display:flex; gap:10px; margin-bottom:12px;">
-        <input type="text" id="server-name" placeholder="Название лобби" style="flex:1;">
-        <input type="text" id="server-mode" placeholder="Режим" style="flex:1;">
+
+    <div class="tab-bar">
+        <button id="tab-queue" class="active" onclick="switchTab('queue')">🎯 Поиск</button>
+        <button id="tab-chat" onclick="switchTab('chat')">💬 Чат</button>
+        <button id="tab-profile" onclick="switchTab('profile')">👤 Профиль</button>
     </div>
-    <input type="text" id="server-map" placeholder="Карта" style="margin-bottom:12px;">
-    <button onclick="createServer()">Создать лобби</button>
-    <h2 style="margin-top:20px;">Серверы</h2>
-    <div id="servers-list">Загрузка...</div>
+
+    <!-- Вкладка Поиск игры -->
+    <div id="tab-content-queue">
+        <div class="card">
+            <label>Режим</label>
+            <select id="queue-mode">
+                <option value="1v1">1 на 1</option>
+                <option value="2v2">2 на 2</option>
+                <option value="5v5">5 на 5</option>
+            </select>
+            <label>Тип</label>
+            <select id="queue-type">
+                <option value="unranked">Обычный</option>
+                <option value="ranked">Рейтинговый</option>
+            </select>
+            <button id="btn-join-queue" onclick="joinQueue()">🔍 Найти игру</button>
+            <button id="btn-leave-queue" class="btn-danger" style="display:none;" onclick="leaveQueue()">❌ Отменить поиск</button>
+        </div>
+        <div id="queue-status" class="msg"></div>
+        <h3>Игроки в очереди</h3>
+        <div id="queue-list">Загрузка...</div>
+    </div>
+
+    <!-- Вкладка Чат -->
+    <div id="tab-content-chat" style="display:none;">
+        <div id="chat-box"></div>
+        <div class="row">
+            <input type="text" id="chat-input" placeholder="Сообщение...">
+            <button onclick="sendChat()" style="width:auto; padding:13px 18px;">➤</button>
+        </div>
+    </div>
+
+    <!-- Вкладка Профиль -->
+    <div id="tab-content-profile" style="display:none;">
+        <div class="card">
+            <h3>Моя статистика</h3>
+            <div id="profile-stats">Загрузка...</div>
+        </div>
+    </div>
 </div>
 
-<!-- ЭКРАН ЛОББИ -->
-<div id="screen-game" class="screen">
-    <div class="top-bar">
-        <button onclick="leaveLobby()">← Назад</button>
-        <span id="lobby-title" style="font-weight:bold; color:#e94560;"></span>
-        <span></span>
+<!-- ЭКРАН МАТЧ НАЙДЕН -->
+<div id="screen-match" class="screen">
+    <h2>⚔️ Матч найден!</h2>
+    <div class="card">
+        <p id="match-info"></p>
+        <p id="match-timer" style="color:#ff5722; font-size:20px; text-align:center;"></p>
     </div>
-    <div id="lobby-info" style="font-size:13px; color:#aaa; margin-bottom:8px;"></div>
-    <div id="players-list" style="margin-bottom:12px; font-size:14px;"></div>
-    <div id="chat-box"></div>
-    <div style="display:flex; gap:8px;">
-        <input type="text" id="chat-input" placeholder="Сообщение..." style="flex:1;">
-        <button onclick="sendMessage()" style="width:auto; padding:14px 20px;">➤</button>
-    </div>
+    <button onclick="acceptMatch()">✅ Принять</button>
+    <button class="btn-danger" onclick="declineMatch()">❌ Отклонить</button>
 </div>
 
 <script>
-// ==================== СОСТОЯНИЕ ====================
-let token = localStorage.getItem('satoshi_token') || '';
-let username = localStorage.getItem('satoshi_user') || '';
+// ================= СОСТОЯНИЕ =================
+let myUserId = localStorage.getItem('s2_userId') || '';
+let myUserData = null;
 let socket = null;
-let currentLobby = null;
+let currentTab = 'queue';
+let inQueue = false;
+let queueMode = '1v1';
+let queueType = 'unranked';
+let currentMatch = null;
+let matchTimer = null;
+let matchTimerCount = 15;
 
-// ==================== ПОКАЗ ЭКРАНОВ ====================
+// ================= ЭКРАНЫ =================
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
-// ==================== АВТО-ВХОД ====================
-if (token && username) {
-    showScreen('screen-lobby');
-    connectSocket();
-    loadServers();
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelectorAll('[id^="tab-content-"]').forEach(d => d.style.display = 'none');
+    document.getElementById('tab-content-' + tab).style.display = 'block';
 }
 
-// ==================== АВТОРИЗАЦИЯ ====================
+function showRegister() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = 'block';
+    document.getElementById('auth-msg').textContent = '';
+}
+
+function showLogin() {
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('auth-msg').textContent = '';
+}
+
+// ================= АВТОРИЗАЦИЯ =================
 async function login() {
-    const u = document.getElementById('username').value.trim();
-    const p = document.getElementById('password').value.trim();
-    if (!u || !p) return showError('Заполни все поля');
-    
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    if (!username || !password) return showAuthMsg('Заполни все поля', 'error');
+
     try {
         const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
+            body: JSON.stringify({ username, password })
         });
         const data = await res.json();
-        if (res.ok) {
-            token = data.token;
-            username = u;
-            localStorage.setItem('satoshi_token', token);
-            localStorage.setItem('satoshi_user', username);
-            showScreen('screen-lobby');
-            connectSocket();
-            loadServers();
+        if (data.success) {
+            myUserId = data.userData.id;
+            myUserData = data.userData;
+            localStorage.setItem('s2_userId', myUserId);
+            enterApp();
         } else {
-            showError(data.error || 'Ошибка входа');
+            showAuthMsg(data.message || 'Неверный логин или пароль', 'error');
         }
     } catch (e) {
-        showError('Сервер недоступен');
+        showAuthMsg('Сервер недоступен', 'error');
     }
 }
 
 async function register() {
-    const u = document.getElementById('username').value.trim();
-    const p = document.getElementById('password').value.trim();
-    if (!u || !p) return showError('Заполни все поля');
-    
+    const username = document.getElementById('reg-username').value.trim();
+    const password = document.getElementById('reg-password').value.trim();
+    const inGameNick = document.getElementById('reg-nick').value.trim();
+    const inGameId = document.getElementById('reg-gameid').value.trim();
+
+    if (!username || !password || !inGameNick || !inGameId) {
+        return showAuthMsg('Все поля обязательны', 'error');
+    }
+
     try {
         const res = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
+            body: JSON.stringify({ username, password, inGameNick, inGameId })
         });
         const data = await res.json();
-        if (res.ok) {
-            showError('');
-            document.getElementById('auth-error').className = 'success';
-            document.getElementById('auth-error').textContent = 'Аккаунт создан! Теперь войди';
+        if (data.success) {
+            showAuthMsg('Аккаунт создан! ID: ' + data.userId + '. Теперь войди.', 'success');
+            showLogin();
+            document.getElementById('login-username').value = username;
         } else {
-            showError(data.error || 'Ошибка регистрации');
+            showAuthMsg(data.message || 'Ошибка регистрации', 'error');
         }
     } catch (e) {
-        showError('Сервер недоступен');
+        showAuthMsg('Сервер недоступен', 'error');
     }
 }
 
-function showError(msg) {
-    const el = document.getElementById('auth-error');
-    el.className = 'error';
+function showAuthMsg(msg, cls) {
+    const el = document.getElementById('auth-msg');
     el.textContent = msg;
+    el.className = 'msg ' + cls;
 }
 
 function logout() {
-    token = '';
-    username = '';
-    localStorage.clear();
     if (socket) socket.disconnect();
+    localStorage.clear();
+    myUserId = '';
+    myUserData = null;
     showScreen('screen-auth');
 }
 
-// ==================== SOCKET.IO ====================
+// ================= ВХОД В ПРИЛОЖЕНИЕ =================
+function enterApp() {
+    showScreen('screen-main');
+    document.getElementById('user-nick').textContent = myUserData?.inGameNick || myUserId;
+    connectSocket();
+    switchTab('queue');
+}
+
+// ================= SOCKET.IO =================
 function connectSocket() {
     if (socket) socket.disconnect();
-    socket = io({ query: { token, username } });
-    
-    socket.on('connect', () => console.log('Socket connected'));
-    
-    socket.on('server-created', (server) => {
-        loadServers();
-    });
-    
-    socket.on('server-removed', (data) => {
-        loadServers();
-    });
-    
-    socket.on('player-joined', (data) => {
-        if (currentLobby && data.serverId === currentLobby.id) {
-            addChatMessage('system', `${data.username} зашёл в лобби`);
-            refreshLobbyInfo();
-        }
-    });
-    
-    socket.on('player-left', (data) => {
-        if (currentLobby && data.serverId === currentLobby.id) {
-            addChatMessage('system', `${data.username} вышел из лобби`);
-            refreshLobbyInfo();
-        }
-    });
-    
-    socket.on('lobby-message', (data) => {
-        if (currentLobby && data.serverId === currentLobby.id) {
-            addChatMessage(data.username, data.message);
-        }
-    });
-}
+    socket = io();
 
-// ==================== СЕРВЕРЫ ====================
-async function loadServers() {
-    try {
-        const res = await fetch('/api/servers', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const servers = await res.json();
-        const container = document.getElementById('servers-list');
-        if (!servers.length) {
-            container.innerHTML = '<p style="color:#aaa; text-align:center;">Нет активных серверов</p>';
-            return;
-        }
-        container.innerHTML = servers.map(s => `
-            <div class="server-card" onclick="joinServer('${s.id}')">
-                <div class="server-name">${escapeHtml(s.name)}</div>
-                <div class="server-info">
-                    ${escapeHtml(s.mode || '?')} | ${escapeHtml(s.map || '?')} | 
-                    ${s.players || 0} игроков | ${escapeHtml(s.hostName || 'хост')}
-                </div>
-            </div>
-        `).join('');
-    } catch (e) {
-        document.getElementById('servers-list').innerHTML = '<p style="color:#e94560;">Ошибка загрузки</p>';
-    }
-}
+    socket.on('connect', () => {
+        socket.emit('auth', myUserId);
+        loadQueueState();
+    });
 
-async function createServer() {
-    const name = document.getElementById('server-name').value.trim();
-    const mode = document.getElementById('server-mode').value.trim();
-    const map = document.getElementById('server-map').value.trim();
-    
-    if (!name) return alert('Введи название лобби');
-    
-    try {
-        const res = await fetch('/api/servers', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ name, mode, map })
-        });
-        if (res.ok) {
-            document.getElementById('server-name').value = '';
-            document.getElementById('server-mode').value = '';
-            document.getElementById('server-map').value = '';
-            loadServers();
-        }
-    } catch (e) {
-        alert('Ошибка создания сервера');
-    }
-}
+    socket.on('queueUpdate', (queues) => {
+        displayQueues(queues);
+    });
 
-async function joinServer(serverId) {
-    try {
-        const res = await fetch('/api/servers', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const servers = await res.json();
-        currentLobby = servers.find(s => s.id === serverId);
-        
-        if (!currentLobby) return;
-        
-        document.getElementById('lobby-title').textContent = currentLobby.name;
-        document.getElementById('lobby-info').innerHTML = `
-            Режим: ${escapeHtml(currentLobby.mode || '?')} | 
-            Карта: ${escapeHtml(currentLobby.map || '?')}
+    socket.on('chatHistory', (messages) => {
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
+        messages.forEach(m => addChatMsg(m.user || m.from, m.text || m.message, m.date));
+    });
+
+    socket.on('chatMessage', (msg) => {
+        addChatMsg(msg.user || msg.from, msg.text || msg.message, msg.date);
+    });
+
+    socket.on('matchFound', (data) => {
+        currentMatch = data;
+        matchTimerCount = Math.floor(data.timeout / 1000);
+        document.getElementById('match-info').innerHTML = `
+            Режим: ${data.mode} ${data.ranked ? '(Рейтинг)' : '(Обычный)'}<br>
+            Карта: ${data.map}<br>
+            Игроки: ${data.participants.length}
         `;
-        document.getElementById('chat-box').innerHTML = '';
-        document.getElementById('chat-input').value = '';
-        
-        showScreen('screen-game');
-        
-        socket.emit('join-lobby', { serverId });
-        
-        refreshLobbyInfo();
-    } catch (e) {
-        alert('Ошибка подключения');
-    }
+        showScreen('screen-match');
+        startMatchTimer();
+    });
+
+    socket.on('matchCancelled', () => {
+        currentMatch = null;
+        clearInterval(matchTimer);
+        showScreen('screen-main');
+        document.getElementById('queue-status').innerHTML = '<span class="error">Матч отменён</span>';
+    });
+
+    socket.on('queueError', (data) => {
+        document.getElementById('queue-status').innerHTML = '<span class="error">' + data.message + '</span>';
+    });
+
+    socket.on('banned', (data) => {
+        alert('Вы забанены до ' + new Date(data.until).toLocaleString() + '. Причина: ' + data.reason);
+        logout();
+    });
+
+    socket.on('muted', (data) => {
+        document.getElementById('queue-status').innerHTML = '<span class="error">Вы замьючены до ' + new Date(data.until).toLocaleString() + '</span>';
+    });
 }
 
-function refreshLobbyInfo() {
-    // Запрашиваем game-info для получения списка игроков
-    socket.emit('request-game-info', { serverId: currentLobby?.id });
-    
-    socket.once('game-info', (data) => {
-        if (data.players) {
-            document.getElementById('players-list').innerHTML = 
-                '🎮 Игроки: ' + data.players.map(p => escapeHtml(p)).join(', ');
+// ================= ОЧЕРЕДЬ =================
+function joinQueue() {
+    queueMode = document.getElementById('queue-mode').value;
+    queueType = document.getElementById('queue-type').value;
+
+    socket.emit('joinQueue', { mode: queueMode, ranked: queueType === 'ranked' });
+    inQueue = true;
+    document.getElementById('btn-join-queue').style.display = 'none';
+    document.getElementById('btn-leave-queue').style.display = 'block';
+    document.getElementById('queue-status').innerHTML = '<span style="color:#ff5722;">🔍 Поиск игры...</span>';
+}
+
+function leaveQueue() {
+    socket.emit('leaveQueue', { mode: queueMode, ranked: queueType === 'ranked' });
+    inQueue = false;
+    document.getElementById('btn-join-queue').style.display = 'block';
+    document.getElementById('btn-leave-queue').style.display = 'none';
+    document.getElementById('queue-status').innerHTML = '';
+}
+
+function acceptMatch() {
+    if (!currentMatch) return;
+    socket.emit('acceptMatch', { matchId: currentMatch.id });
+    clearInterval(matchTimer);
+    showScreen('screen-main');
+    document.getElementById('queue-status').innerHTML = '<span class="success">Матч принят! Заходи в Standoff 2</span>';
+    currentMatch = null;
+}
+
+function declineMatch() {
+    if (!currentMatch) return;
+    socket.emit('declineMatch', { matchId: currentMatch.id });
+    clearInterval(matchTimer);
+    showScreen('screen-main');
+    currentMatch = null;
+}
+
+function startMatchTimer() {
+    clearInterval(matchTimer);
+    const timerEl = document.getElementById('match-timer');
+    timerEl.textContent = matchTimerCount;
+    matchTimer = setInterval(() => {
+        matchTimerCount--;
+        timerEl.textContent = matchTimerCount;
+        if (matchTimerCount <= 0) {
+            clearInterval(matchTimer);
+            showScreen('screen-main');
+            currentMatch = null;
         }
-    });
+    }, 1000);
 }
 
-function leaveLobby() {
-    if (currentLobby) {
-        socket.emit('leave-lobby', { serverId: currentLobby.id });
+function loadQueueState() {
+    fetch('/api/user/' + myUserId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                myUserData = d.userData;
+                document.getElementById('user-nick').textContent = myUserData.inGameNick || myUserId;
+                updateProfileStats();
+            }
+        });
+}
+
+function displayQueues(queues) {
+    const container = document.getElementById('queue-list');
+    let html = '';
+    for (const [key, q] of Object.entries(queues)) {
+        if (q.length === 0) continue;
+        const label = key.replace('_', ' → ');
+        html += `<div class="queue-info"><b>${label}:</b> ${q.length} игроков</div>`;
     }
-    currentLobby = null;
-    showScreen('screen-lobby');
-    loadServers();
+    if (!html) html = '<p style="color:#666; text-align:center;">Очереди пусты</p>';
+    container.innerHTML = html;
 }
 
-// ==================== ЧАТ ====================
-function sendMessage() {
+// ================= ЧАТ =================
+function sendChat() {
     const input = document.getElementById('chat-input');
-    const msg = input.value.trim();
-    if (!msg || !currentLobby) return;
-    
-    socket.emit('lobby-message', {
-        serverId: currentLobby.id,
-        message: msg
-    });
-    
-    addChatMessage(username, msg);
+    const text = input.value.trim();
+    if (!text) return;
+    if (socket) socket.emit('chatMessage', { text });
     input.value = '';
 }
 
-function addChatMessage(user, msg) {
+function addChatMsg(user, text, date) {
     const box = document.getElementById('chat-box');
-    const time = new Date().toLocaleTimeString().slice(0, 5);
-    const cls = user === 'system' ? 'style="color:#666;"' : '';
-    box.innerHTML += `<div class="chat-msg"><span class="user">${escapeHtml(user)}</span><span class="time">${time}</span><br><span ${cls}>${escapeHtml(msg)}</span></div>`;
+    const time = date ? new Date(date).toLocaleTimeString().slice(0,5) : new Date().toLocaleTimeString().slice(0,5);
+    const displayUser = user === myUserId ? (myUserData?.username || 'Я') : (user || 'Аноним');
+    box.innerHTML += `<div class="chat-msg"><span class="user">${esc(displayUser)}</span><span class="time">${time}</span><br>${esc(text)}</div>`;
     box.scrollTop = box.scrollHeight;
 }
 
-document.getElementById('chat-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') sendMessage();
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && currentTab === 'chat') {
+        sendChat();
+    }
 });
 
-// ==================== УТИЛИТЫ ====================
-function escapeHtml(text) {
+// ================= ПРОФИЛЬ =================
+function updateProfileStats() {
+    if (!myUserData) return;
+    const s = myUserData.stats;
+    document.getElementById('profile-stats').innerHTML = `
+        <p><b>Ник:</b> ${esc(myUserData.inGameNick)}</p>
+        <p><b>ID:</b> ${esc(myUserData.inGameId)}</p>
+        <p><b>MMR 1v1:</b> ${s.mmr_1v1} | Побед: ${s.wins_1v1}</p>
+        <p><b>MMR 2v2:</b> ${s.mmr_2v2} | Побед: ${s.wins_2v2}</p>
+        <p><b>MMR 5v5:</b> ${s.mmr_5v5} | Побед: ${s.wins_5v5}</p>
+        <p><b>Всего рейтинговых побед:</b> ${s.totalRankedWins}</p>
+    `;
+}
+
+// ================= УТИЛИТЫ =================
+function esc(text) {
+    if (!text) return '';
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = String(text);
     return div.innerHTML;
+}
+
+// ================= АВТОВХОД =================
+if (myUserId) {
+    fetch('/api/user/' + myUserId)
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                myUserData = d.userData;
+                enterApp();
+            }
+        })
+        .catch(() => {});
 }
 </script>
 </body>
